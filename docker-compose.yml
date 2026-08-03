@@ -66,6 +66,40 @@ services:
       timeout: 3s
       retries: 5
 
+  # Shared multi-tenant billing service (same image dopamine-kick uses).
+  # Config-only for Bloom: a Products__coffee-journal entry + Stripe keys from
+  # .env. Publishes SubscriptionEntitlementChanged to rabbitmq on every sync,
+  # which feeds the API's entitlement read-model. EF creates its own
+  # `paymentsdb` database on first boot.
+  payments-gateway:
+    container_name: coffee-journal-payments-gateway
+    image: creativefree/payments-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_HTTP_PORTS: 8080
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ConnectionStrings__PaymentsDBConnectionString: "Host=postgres;Port=5432;Database=paymentsdb;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
+      RabbitMQ__HostName: "rabbitmq"
+      RabbitMQ__Port: 5672
+      RabbitMQ__UserName: ${RABBITMQ_USER:-bloom}
+      RabbitMQ__Password: ${RABBITMQ_PASS:-bloom}
+      RabbitMQ__VirtualHost: "/"
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY}
+      Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      Products__coffee-journal__PriceId: ${STRIPE_COFFEE_JOURNAL_PRICEID}
+      Products__coffee-journal__SuccessUrl: "http://localhost:5224/success"
+      Products__coffee-journal__CancelUrl: "http://localhost:5224/pricing"
+      Products__coffee-journal__PortalReturnUrl: "http://localhost:5224/"
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+
   coffee-journal-api:
     container_name: coffee-journal-api
     build:
@@ -133,6 +167,20 @@ services:
       OpenIdConnectOptions__RedirectUri: "/"
       OpenIdConnectOptions__RequireHttpsMetadata: false
       OpenIdConnectOptions__RequireSecureCookies: false
+      # Stripe webhook: not under the {productId} group, must pass through
+      # unmodified and unauthenticated (Stripe verifies its own signature).
+      # Lowest Order = evaluated first, ahead of billing-route.
+      ReverseProxy__Routes__billing-webhook-route__Order: "-30"
+      ReverseProxy__Routes__billing-webhook-route__ClusterId: "payments-gateway"
+      ReverseProxy__Routes__billing-webhook-route__Match__Path: "/api/billing/webhook"
+      ReverseProxy__Routes__billing-webhook-route__Match__Methods__0: "POST"
+      # Billing → payments-gateway. The gateway requires a {productId} path
+      # segment the frontend never sends; inject "coffee-journal" on the way out.
+      ReverseProxy__Routes__billing-route__Order: "-20"
+      ReverseProxy__Routes__billing-route__ClusterId: "payments-gateway"
+      ReverseProxy__Routes__billing-route__Match__Path: "/api/billing/{**remainder}"
+      ReverseProxy__Routes__billing-route__Transforms__0__PathPattern: "/api/billing/coffee-journal/{**remainder}"
+      ReverseProxy__Clusters__payments-gateway__Destinations__destination1__Address: "http://payments-gateway:8080/"
       # /api/* → sync API (path preserved; the API answers on /api/sync directly)
       ReverseProxy__Routes__api-route__Order: "-10"
       ReverseProxy__Routes__api-route__ClusterId: "coffee-journal-api"
@@ -151,6 +199,8 @@ services:
       coffee-journal-api:
         condition: service_started
       coffee-journal-app:
+        condition: service_started
+      payments-gateway:
         condition: service_started
 
 volumes:
