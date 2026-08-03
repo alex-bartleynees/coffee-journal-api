@@ -33,6 +33,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # Carries SubscriptionEntitlementChanged events from the (shared)
+  # Payments.Gateway to the API's entitlement consumer. The gateway itself
+  # joins this stack with the billing build; until then events can be
+  # published manually for testing (see README).
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: coffee-journal-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-bloom}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-bloom}
+    volumes:
+      - rabbitmq-lib:/var/lib/rabbitmq/
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Session store for the BFF (cookie/data-protection keys).
   redis:
     image: redis:7-alpine
@@ -60,10 +81,15 @@ services:
       # (x-dev-user header) — login through the BFF then won't authenticate.
       KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      RABBITMQ_URL: "amqp://${RABBITMQ_USER:-bloom}:${RABBITMQ_PASS:-bloom}@rabbitmq:5672"
     depends_on:
       postgres:
         condition: service_healthy
         restart: true
+      # service_started (not healthy) on purpose: the consumer retries with
+      # backoff, and sync must stay up even if rabbitmq is down.
+      rabbitmq:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -130,3 +156,4 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  rabbitmq-lib:

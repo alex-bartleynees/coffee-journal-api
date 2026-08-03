@@ -15,5 +15,14 @@ export const AppConfig = {
 	 * lands with Step 3 of the plan.
 	 */
 	jwksUrl: Config.string('KEYCLOAK_JWKS_URL').pipe(Config.withDefault('')),
-	issuer: Config.string('KEYCLOAK_ISSUER').pipe(Config.withDefault(''))
+	issuer: Config.string('KEYCLOAK_ISSUER').pipe(Config.withDefault('')),
+	/**
+	 * AMQP connection string for the entitlement consumer. Empty = consumer
+	 * disabled (sync still runs; the entitlement gate then only ever sees
+	 * whatever is already in the local read-model — fail-closed).
+	 */
+	rabbitMqUrl: Config.string('RABBITMQ_URL').pipe(Config.withDefault(''))
 };
+
+/** Our slug in the shared multi-tenant Payments.Gateway. */
+export const PRODUCT_ID = 'coffee-journal';

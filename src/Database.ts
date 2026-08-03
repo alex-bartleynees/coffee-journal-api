@@ -1,7 +1,7 @@
 import { Context, Data, Effect, Layer } from 'effect';
 import postgres from 'postgres';
 import { AppConfig } from './config.js';
-import type { SyncRecord, SyncRequest, SyncResponse } from './schema.js';
+import type { EntitlementEvent, SyncRecord, SyncRequest, SyncResponse } from './schema.js';
 
 export class DbError extends Data.TaggedError('DbError')<{ readonly cause: unknown }> {}
 
@@ -12,6 +12,24 @@ export interface DatabaseService {
 	 * of any rejected (stale) change, then pull everything changed since `since`.
 	 */
 	readonly sync: (userId: string, req: SyncRequest) => Effect.Effect<SyncResponse, DbError>;
+	/**
+	 * The entitlement gate read: whether the local read-model (fed by the
+	 * Payments.Gateway RabbitMQ events) grants this user sync access.
+	 * Fail-closed — no row means no access.
+	 */
+	readonly hasAccess: (userId: string) => Effect.Effect<boolean, DbError>;
+	/**
+	 * JIT-provision / refresh the thin users row on an entitled sync.
+	 * Bookkeeping only (ops/support/deletion anchor) — carries no credentials
+	 * and no access flags.
+	 */
+	readonly touchUser: (userId: string, email: string | null) => Effect.Effect<void, DbError>;
+	/**
+	 * Apply a `SubscriptionEntitlementChanged` event to the read-model,
+	 * idempotently (inbox dedupe on MessageId). Caller has already filtered on
+	 * ProductId. Returns false when the message was a duplicate.
+	 */
+	readonly applyEntitlement: (event: EntitlementEvent) => Effect.Effect<boolean, DbError>;
 }
 
 export class Database extends Context.Tag('Database')<Database, DatabaseService>() {}
@@ -50,6 +68,33 @@ const migrate = (sql: postgres.Sql) =>
 				PRIMARY KEY (user_id, entity, id)
 			)`;
 		await sql`CREATE INDEX IF NOT EXISTS sync_records_user_seq ON sync_records (user_id, server_seq)`;
+		// Entitlement read-model — the authoritative copy lives in the shared
+		// Payments.Gateway; this is the local cache fed by its RabbitMQ events.
+		await sql`
+			CREATE TABLE IF NOT EXISTS entitlements (
+				user_id              text NOT NULL PRIMARY KEY,
+				product_id           text NOT NULL,
+				has_access           boolean NOT NULL,
+				status               text NOT NULL,
+				current_period_end   timestamptz,
+				cancel_at_period_end boolean NOT NULL DEFAULT false,
+				updated_at           timestamptz NOT NULL DEFAULT now()
+			)`;
+		// Inbox dedupe for consumed integration events.
+		await sql`
+			CREATE TABLE IF NOT EXISTS processed_messages (
+				message_id   text NOT NULL PRIMARY KEY,
+				processed_at timestamptz NOT NULL DEFAULT now()
+			)`;
+		// Thin JIT users table — ops/support/deletion anchor. Identity lives in
+		// Keycloak; access lives in entitlements. Nothing sensitive here.
+		await sql`
+			CREATE TABLE IF NOT EXISTS users (
+				user_id      text NOT NULL PRIMARY KEY,
+				email        text,
+				created_at   timestamptz NOT NULL DEFAULT now(),
+				last_sync_at timestamptz NOT NULL DEFAULT now()
+			)`;
 	});
 
 export const DatabaseLive = Layer.scoped(
@@ -119,6 +164,59 @@ export const DatabaseLive = Layer.scoped(
 				catch: (cause) => new DbError({ cause })
 			});
 
-		return { sync };
+		const hasAccess: DatabaseService['hasAccess'] = (userId) =>
+			Effect.tryPromise({
+				try: async () => {
+					const rows = await sql<{ has_access: boolean }[]>`
+						SELECT has_access FROM entitlements WHERE user_id = ${userId}`;
+					return rows[0]?.has_access === true;
+				},
+				catch: (cause) => new DbError({ cause })
+			});
+
+		const touchUser: DatabaseService['touchUser'] = (userId, email) =>
+			Effect.tryPromise({
+				try: async () => {
+					await sql`
+						INSERT INTO users (user_id, email)
+						VALUES (${userId}, ${email})
+						ON CONFLICT (user_id) DO UPDATE
+							SET last_sync_at = now(),
+								email = COALESCE(excluded.email, users.email)`;
+				},
+				catch: (cause) => new DbError({ cause })
+			});
+
+		const applyEntitlement: DatabaseService['applyEntitlement'] = (event) =>
+			Effect.tryPromise({
+				try: () =>
+					sql.begin(async (tx) => {
+						const inserted = await tx`
+							INSERT INTO processed_messages (message_id)
+							VALUES (${event.MessageId})
+							ON CONFLICT (message_id) DO NOTHING
+							RETURNING message_id`;
+						if (inserted.length === 0) return false; // duplicate delivery
+
+						await tx`
+							INSERT INTO entitlements
+								(user_id, product_id, has_access, status, current_period_end, cancel_at_period_end, updated_at)
+							VALUES (
+								${event.UserId}, ${event.ProductId}, ${event.HasAccess}, ${event.Status},
+								${event.CurrentPeriodEnd ?? null}, ${event.CancelAtPeriodEnd}, now()
+							)
+							ON CONFLICT (user_id) DO UPDATE
+								SET product_id = excluded.product_id,
+									has_access = excluded.has_access,
+									status = excluded.status,
+									current_period_end = excluded.current_period_end,
+									cancel_at_period_end = excluded.cancel_at_period_end,
+									updated_at = now()`;
+						return true;
+					}) as Promise<boolean>,
+				catch: (cause) => new DbError({ cause })
+			});
+
+		return { sync, hasAccess, touchUser, applyEntitlement };
 	})
 );

@@ -8,18 +8,29 @@ const textStatus = (body: string, status: number) =>
 	Effect.succeed(HttpServerResponse.setStatus(HttpServerResponse.text(body), status));
 
 /**
- * POST /sync — authenticate, decode the delta request, run the LWW push+pull,
- * and return the delta response. Failures are mapped to HTTP status codes;
- * anything unexpected is logged and returned as 500.
+ * POST /sync — authenticate, enforce the subscription entitlement (fail-closed
+ * against the local read-model), decode the delta request, run the LWW
+ * push+pull, and return the delta response. Failures are mapped to HTTP status
+ * codes; anything unexpected is logged and returned as 500.
  */
 const syncRoute = Effect.gen(function* () {
 	const request = yield* HttpServerRequest.HttpServerRequest;
 	const auth = yield* Auth;
 	const db = yield* Database;
 
-	const userId = yield* auth.userId(request.headers);
+	const user = yield* auth.user(request.headers);
+
+	// Shared Keycloak realm ⇒ any product's user can authenticate here.
+	// Product membership is this entitlement check: free tier is local-only,
+	// so sync access ≡ being a (subscribed) Bloom user.
+	const entitled = yield* db.hasAccess(user.userId);
+	if (!entitled) {
+		return yield* HttpServerResponse.json({ error: 'subscription_required' }, { status: 403 });
+	}
+	yield* db.touchUser(user.userId, user.email);
+
 	const body = yield* HttpServerRequest.schemaBodyJson(SyncRequest);
-	const result = yield* db.sync(userId, body);
+	const result = yield* db.sync(user.userId, body);
 	return yield* HttpServerResponse.schemaJson(SyncResponse)(result);
 }).pipe(
 	Effect.catchTags({

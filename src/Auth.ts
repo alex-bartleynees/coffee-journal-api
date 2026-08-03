@@ -5,9 +5,11 @@ import { AppConfig } from './config.js';
 
 export class AuthError extends Data.TaggedError('AuthError')<{ readonly reason: string }> {}
 
+export type AuthUser = { readonly userId: string; readonly email: string | null };
+
 export interface AuthService {
-	/** Resolve the authenticated user id (Keycloak `sub`) from request headers. */
-	readonly userId: (headers: Headers.Headers) => Effect.Effect<string, AuthError>;
+	/** Resolve the authenticated user (Keycloak `sub` + email claim) from request headers. */
+	readonly user: (headers: Headers.Headers) => Effect.Effect<AuthUser, AuthError>;
 }
 
 export class Auth extends Context.Tag('Auth')<Auth, AuthService>() {}
@@ -29,7 +31,7 @@ export const AuthLive = Layer.effect(
 		if (jwksUrl !== '') {
 			const jwks = createRemoteJWKSet(new URL(jwksUrl));
 			return {
-				userId: (headers) =>
+				user: (headers) =>
 					Effect.gen(function* () {
 						const token = bearer(headers);
 						if (!token) return yield* new AuthError({ reason: 'missing bearer token' });
@@ -40,7 +42,10 @@ export const AuthLive = Layer.effect(
 						if (typeof payload.sub !== 'string') {
 							return yield* new AuthError({ reason: 'token has no sub' });
 						}
-						return payload.sub;
+						return {
+							userId: payload.sub,
+							email: typeof payload.email === 'string' ? payload.email : null
+						};
 					})
 			} satisfies AuthService;
 		}
@@ -52,10 +57,10 @@ export const AuthLive = Layer.effect(
 			'[auth] KEYCLOAK_JWKS_URL unset — running in DEV mode, trusting x-dev-user header'
 		);
 		return {
-			userId: (headers) => {
+			user: (headers) => {
 				const dev = headers['x-dev-user'];
 				return dev && dev !== ''
-					? Effect.succeed(dev)
+					? Effect.succeed({ userId: dev, email: null })
 					: new AuthError({ reason: 'dev mode: missing x-dev-user header' });
 			}
 		} satisfies AuthService;

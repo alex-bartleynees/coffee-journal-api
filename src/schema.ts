@@ -32,6 +32,25 @@ export const SyncRequest = Schema.Struct({
 });
 export type SyncRequest = typeof SyncRequest.Type;
 
+/**
+ * `SubscriptionEntitlementChanged` as published by the shared Payments.Gateway
+ * (see `Common.IntegrationEvents.Payments` in that repo). PascalCase on the
+ * wire — the gateway serialises with .NET `JsonSerializer` default options.
+ * `HasAccess` is the gateway's authoritative access decision; we store it
+ * verbatim rather than re-deriving the rule. `Status` is the stable lower-case
+ * Stripe token (e.g. `past_due`), never an enum name.
+ */
+export const EntitlementEvent = Schema.Struct({
+	MessageId: Schema.String,
+	ProductId: Schema.String,
+	UserId: Schema.String,
+	Status: Schema.String,
+	HasAccess: Schema.Boolean,
+	CurrentPeriodEnd: Schema.NullishOr(Schema.String),
+	CancelAtPeriodEnd: Schema.Boolean
+});
+export type EntitlementEvent = typeof EntitlementEvent.Type;
+
 export const SyncResponse = Schema.Struct({
 	/** Ids the server accepted from `changes` — client clears their dirty flag. */
 	applied: Schema.Array(Schema.String),

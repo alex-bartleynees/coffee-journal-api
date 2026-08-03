@@ -28,6 +28,33 @@ cursor — clients send the highest `cursor` they've seen as the next `since`.
 Deletes are tombstones (`deleted: true`). A grinder carries its presets inside
 its opaque `payload`, so there's no child-row sync.
 
+## Subscription gate (entitlements)
+
+`POST /sync` requires an entitlement: the app is free/local-only, sync is the
+paid feature. The gate reads the local `entitlements` read-model (fail-closed —
+no row = 403 `{"error":"subscription_required"}`), which is fed by
+`SubscriptionEntitlementChanged` events from the shared Payments.Gateway over
+RabbitMQ (exchange `payments-direct`, routing key
+`subscription.entitlement.changed`, queue `coffee-journal.entitlements` + DLQ;
+PascalCase JSON; deduped on `MessageId`; events for other products are skipped).
+Entitled syncs also JIT-upsert a thin `users` row (sub/email/first-seen/last-sync
+— ops bookkeeping only). `RABBITMQ_URL` unset = consumer disabled.
+
+**Granting yourself sync before the payments wiring exists** (e.g. for the
+login E2E): find your Keycloak `sub` (in `/bff/user` claims), then either
+insert directly —
+
+```sh
+docker exec coffee-journal-postgres psql -U postgres -d coffee_journal -c \
+  "INSERT INTO entitlements (user_id, product_id, has_access, status)
+   VALUES ('<your-sub>', 'coffee-journal', true, 'active')
+   ON CONFLICT (user_id) DO UPDATE SET has_access = true, status = 'active';"
+```
+
+— or publish a real `SubscriptionEntitlementChanged` event to `payments-direct`
+(management UI at http://localhost:15672, user/pass from `.env`, defaults
+`bloom`/`bloom`).
+
 ## Auth
 
 `POST /sync` resolves the user from the `Authorization: Bearer <jwt>` header,
