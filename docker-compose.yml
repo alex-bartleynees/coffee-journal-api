@@ -24,7 +24,11 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d coffee_journal"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d coffee_journal",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -54,14 +58,20 @@ services:
       # Shared Keycloak realm (same identity server the BFF logs in against).
       # Leave KEYCLOAK_JWKS_URL empty in .env to run the API in dev-auth mode
       # (x-dev-user header) — login through the BFF then won't authenticate.
-      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL:-https://identity.alexbartleynees.com/realms/production/protocol/openid-connect/certs}
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://identity.alexbartleynees.com/realms/production}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
     depends_on:
       postgres:
         condition: service_healthy
         restart: true
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -93,7 +103,7 @@ services:
       Redis__Host: "redis:6379"
       KEYCLOAK_SERVER_URL: "https://identity.alexbartleynees.com"
       OpenIdConnectOptions__ClientId: "coffee-journal"
-      OpenIdConnectOptions__ClientSecret: ${COFFEE_JOURNAL_CLIENT_SECRET:-changeme}
+      OpenIdConnectOptions__ClientSecret: ${COFFEE_JOURNAL_CLIENT_SECRET}
       OpenIdConnectOptions__RedirectUri: "/"
       OpenIdConnectOptions__RequireHttpsMetadata: false
       OpenIdConnectOptions__RequireSecureCookies: false
