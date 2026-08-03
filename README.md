@@ -77,6 +77,17 @@ cp .env.example .env    # set COFFEE_JOURNAL_CLIENT_SECRET
 docker compose up -d --build
 ```
 
+**Stripe webhooks locally:** the happy path (checkout → success page) works
+without webhooks — the success page's `billing/sync` call resyncs from Stripe
+directly. For the full loop incl. automatic cancellation revoking sync, forward
+webhooks with the Stripe CLI:
+
+```sh
+stripe listen --forward-to localhost:5224/api/billing/webhook
+# then put the whsec_… secret it PRINTS (not a dashboard secret) into .env as
+# STRIPE_WEBHOOK_SECRET and restart: docker compose up -d payments-gateway
+```
+
 **One-time Keycloak setup (manual):** create a confidential client
 `coffee-journal` in the shared `production` realm on the hosted identity
 server (same pattern as the `dopamine-kick` client), with redirect URI
