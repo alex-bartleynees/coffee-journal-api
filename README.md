@@ -1,0 +1,96 @@
+# coffee-journal-api
+
+Sync backend for the [Bloom coffee journal app](../coffee-app). A small
+Node/Effect.ts service that syncs a user's beans, grinders, and brews across
+their devices using **per-record last-write-wins** over a single delta endpoint.
+
+Design doc: `Sync-Protocol` in the project wiki (Phase 2 Step 2).
+
+## Stack
+
+- **Effect** (`effect`) — runtime, layers, `effect/Schema` wire contracts
+- **@effect/platform** + **@effect/platform-node** — HTTP server/router
+- **postgres** (porsager) — Postgres access
+- **jose** — Keycloak JWKS access-token verification
+- Dev shell via `flake.nix` (`nodejs_22` + `postgresql_16`); run everything with
+  `nix develop -c <cmd>` (no global Node on this machine).
+
+## Endpoints
+
+- `GET /health` → `ok`
+- `POST /sync` (auth required) — push local changes + pull server changes in one
+  round trip. Request `{ since, changes[] }`, response
+  `{ applied[], rejected[], changes[], cursor }`. See `src/schema.ts`.
+
+Conflict resolution is last-write-wins on each record's `updatedAt`
+(client wall-clock ms). `server_seq` (a global Postgres sequence) is the pull
+cursor — clients send the highest `cursor` they've seen as the next `since`.
+Deletes are tombstones (`deleted: true`). A grinder carries its presets inside
+its opaque `payload`, so there's no child-row sync.
+
+## Auth
+
+`POST /sync` resolves the user from the `Authorization: Bearer <jwt>` header,
+verified against the Keycloak realm JWKS (`KEYCLOAK_JWKS_URL` / `KEYCLOAK_ISSUER`).
+
+When `KEYCLOAK_JWKS_URL` is unset the service runs in **dev mode** and trusts an
+`x-dev-user: <id>` header instead — so sync can be exercised before the Keycloak
+client is wired up (Step 3). Never deploy without `KEYCLOAK_JWKS_URL` set.
+
+## Full local stack (docker compose)
+
+`docker-compose.yml` runs everything: postgres, redis, this API, the app
+(built from the sibling `../coffee-app` checkout), and a `coffee-journal-bff`
+instance (the reusable `creativefree/product-feedback-bff` image). Browser
+entrypoint: **http://localhost:5224** (the BFF serves the app, handles
+Keycloak login at `/bff/*`, and proxies `/api/*` with the Bearer token).
+
+```sh
+cp .env.example .env    # set COFFEE_JOURNAL_CLIENT_SECRET
+docker compose up -d --build
+```
+
+**One-time Keycloak setup (manual):** create a confidential client
+`coffee-journal` in the shared `production` realm on the hosted identity
+server (same pattern as the `dopamine-kick` client), with redirect URI
+`http://localhost:5224/*` for local dev, and put its secret in `.env` as
+`COFFEE_JOURNAL_CLIENT_SECRET`. Until then `/bff/login` 500s with a Keycloak
+`invalid_request` (the rest of the stack works without it; sync just stays
+unauthenticated).
+
+## Local development
+
+```sh
+# 1. Postgres (any local instance; example on port 5433)
+nix develop -c initdb -D .pgdata -U postgres --auth=trust
+nix develop -c pg_ctl -D .pgdata -o "-p 5433" -l pg.log start
+nix develop -c createdb -h localhost -p 5433 -U postgres coffee_journal
+
+# 2. install + configure + run
+nix develop -c npm install
+cp .env.example .env        # optional — edit as needed (gitignored)
+nix develop -c npm run dev  # loads .env if present (--env-file-if-exists)
+
+# 3. smoke test (dev auth)
+curl -s -X POST localhost:3001/sync -H 'x-dev-user: me' \
+  -H 'content-type: application/json' \
+  -d '{"since":0,"changes":[{"entity":"bean","id":"b_1","updatedAt":1,"deleted":false,"payload":{"name":"Suke Quto"}}]}'
+```
+
+The `sync_records` table + `sync_seq` sequence are created automatically on boot.
+
+## Env
+
+| Var | Default | Purpose |
+|---|---|---|
+| `PORT` | `3001` | HTTP listen port |
+| `DATABASE_URL` | `postgres://localhost:5432/coffee_journal` | Postgres connection |
+| `KEYCLOAK_JWKS_URL` | *(empty → dev mode)* | Realm JWKS endpoint |
+| `KEYCLOAK_ISSUER` | *(empty)* | Expected token issuer |
+
+## Scripts
+
+- `npm run dev` — watch-run with tsx
+- `npm run check` — `tsc --noEmit`
+- `npm run build` — compile to `dist/`
+- `npm start` — run once

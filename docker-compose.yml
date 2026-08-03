@@ -1,0 +1,122 @@
+# Full local stack for the Bloom coffee journal (mirrors DopamineKick.API's
+# compose layout). Browser entrypoint is the BFF at http://localhost:5224 —
+# it serves the app (YARP → nginx), handles Keycloak login (/bff/*), and
+# proxies /api/* to the sync API with the user's Bearer token attached.
+#
+#   app (nginx SPA) ◄─┐
+#                     ├─ coffee-journal-bff (:5224) ◄─ browser
+#   api (:3001)     ◄─┘         │
+#     │                         └─ Keycloak: hosted identity server
+#     └─ postgres                  (client "coffee-journal", secret in .env)
+#
+# Requires the sibling checkout ../coffee-app for the app build context.
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: coffee-journal-postgres
+    environment:
+      POSTGRES_DB: coffee_journal
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d coffee_journal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Session store for the BFF (cookie/data-protection keys).
+  redis:
+    image: redis:7-alpine
+    container_name: coffee-journal-redis
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  coffee-journal-api:
+    container_name: coffee-journal-api
+    build:
+      context: .
+    image: creativefree/coffee-journal-api:latest
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/coffee_journal"
+      # Shared Keycloak realm (same identity server the BFF logs in against).
+      # Leave KEYCLOAK_JWKS_URL empty in .env to run the API in dev-auth mode
+      # (x-dev-user header) — login through the BFF then won't authenticate.
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL:-https://identity.alexbartleynees.com/realms/production/protocol/openid-connect/certs}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://identity.alexbartleynees.com/realms/production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  coffee-journal-app:
+    container_name: coffee-journal-app
+    build:
+      context: ../coffee-app
+    image: creativefree/coffee-journal-app:latest
+    # Direct access for debugging; normal entrypoint is through the BFF.
+    ports:
+      - "8081:8080"
+
+  # Reusable authgateway-bff (same image as dopamine-kick's BFF) — config-only
+  # instance for this app: Keycloak client "coffee-journal" in the shared realm,
+  # YARP routes to the sync API and the SPA.
+  coffee-journal-bff:
+    container_name: coffee-journal-bff
+    image: creativefree/product-feedback-bff:latest
+    ports:
+      - "5224:5224"
+    environment:
+      ASPNETCORE_URLS: "http://+:5224"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      DOTNET_RUNNING_IN_CONTAINER: "true"
+      DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "true"
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ForwardedHeaders__KnownNetworks__0: "0.0.0.0/0"
+      Redis__Host: "redis:6379"
+      KEYCLOAK_SERVER_URL: "https://identity.alexbartleynees.com"
+      OpenIdConnectOptions__ClientId: "coffee-journal"
+      OpenIdConnectOptions__ClientSecret: ${COFFEE_JOURNAL_CLIENT_SECRET:-changeme}
+      OpenIdConnectOptions__RedirectUri: "/"
+      OpenIdConnectOptions__RequireHttpsMetadata: false
+      OpenIdConnectOptions__RequireSecureCookies: false
+      # /api/* → sync API (path preserved; the API answers on /api/sync directly)
+      ReverseProxy__Routes__api-route__Order: "-10"
+      ReverseProxy__Routes__api-route__ClusterId: "coffee-journal-api"
+      ReverseProxy__Routes__api-route__Match__Path: "/api/{**remainder}"
+      ReverseProxy__Clusters__coffee-journal-api__Destinations__destination1__Address: "http://coffee-journal-api:3001/"
+      # Everything else → the SPA (low priority so /bff/* endpoints and the api
+      # route win; /bff endpoints are app-mapped and take precedence anyway).
+      ReverseProxy__Routes__app-route__Order: "100"
+      ReverseProxy__Routes__app-route__ClusterId: "coffee-journal-app"
+      ReverseProxy__Routes__app-route__Match__Path: "/{**catch-all}"
+      ReverseProxy__Clusters__coffee-journal-app__Destinations__destination1__Address: "http://coffee-journal-app:8080/"
+    depends_on:
+      redis:
+        condition: service_healthy
+        restart: true
+      coffee-journal-api:
+        condition: service_started
+      coffee-journal-app:
+        condition: service_started
+
+volumes:
+  postgres-data:
+  redis-data:

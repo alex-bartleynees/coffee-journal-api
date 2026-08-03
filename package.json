@@ -1,0 +1,25 @@
+{
+  "name": "coffee-journal-api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Sync backend for the Bloom coffee journal app — Node/Effect.ts, Postgres, last-write-wins delta sync.",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch --import tsx src/index.ts",
+    "start": "node --env-file-if-exists=.env --import tsx src/index.ts",
+    "check": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.92.1",
+    "@effect/platform-node": "^0.98.0",
+    "effect": "^3.18.0",
+    "jose": "^6.1.0",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

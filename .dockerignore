@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.local
+flake.nix
+flake.lock
+README.md
+Dockerfile
+.dockerignore
+docker-compose.yml
