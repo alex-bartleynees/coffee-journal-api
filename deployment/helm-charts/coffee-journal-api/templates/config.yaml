@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "coffee-journal-api.fullname" . }}-config
+  namespace: {{ include "coffee-journal-api.namespace" . }}
+  labels:
+    {{- include "coffee-journal-api.labels" . | nindent 4 }}
+data:
+  PORT: {{ .Values.config.port | quote }}
+  KEYCLOAK_JWKS_URL: {{ .Values.config.keycloakJwksUrl | quote }}
+  KEYCLOAK_ISSUER: {{ .Values.config.keycloakIssuer | quote }}

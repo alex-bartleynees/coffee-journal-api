@@ -1,0 +1,92 @@
+replicaCount: 1
+
+namespace: "coffee-journal"
+
+image:
+  repository: creativefree/coffee-journal-api
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 3001
+
+# Non-secret env → ConfigMap. The Keycloak JWKS/issuer are public.
+config:
+  port: "3001"
+  keycloakJwksUrl: "https://identity.alexbartleynees.com/realms/production/protocol/openid-connect/certs"
+  keycloakIssuer: "https://identity.alexbartleynees.com/realms/production"
+
+# DATABASE_URL — full postgres connection string (has credentials) → Secret.
+database:
+  secretName: "coffee-journal-db-secret"
+  connectionStringKey: "DATABASE_URL"
+
+# RABBITMQ_URL — amqp connection string (has credentials) → Secret.
+rabbitmq:
+  secretName: "coffee-journal-rabbitmq-secret"
+  urlKey: "RABBITMQ_URL"
+
+resources:
+  requests:
+    memory: "96Mi"
+    cpu: "50m"
+  limits:
+    memory: "256Mi"
+    cpu: "200m"
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+volumes: []
+volumeMounts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

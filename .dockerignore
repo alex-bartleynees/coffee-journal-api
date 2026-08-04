@@ -10,3 +10,7 @@ README.md
 Dockerfile
 .dockerignore
 docker-compose.yml
+
+# k8s/CI artifacts — not needed in the image build context
+deployment/
+.github/
