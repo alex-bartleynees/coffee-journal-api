@@ -67,7 +67,7 @@ services:
       retries: 5
 
   # Shared multi-tenant billing service (same image dopamine-kick uses).
-  # Config-only for Bloom: a Products__coffee-journal entry + Stripe keys from
+  # Config-only for Bloom: a Products__coffee_journal entry + Stripe keys from
   # .env. Publishes SubscriptionEntitlementChanged to rabbitmq on every sync,
   # which feeds the API's entitlement read-model. EF creates its own
   # `paymentsdb` database on first boot.
@@ -88,10 +88,10 @@ services:
       Stripe__SecretKey: ${STRIPE_SECRET_KEY}
       Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY}
       Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
-      Products__coffee-journal__PriceId: ${STRIPE_COFFEE_JOURNAL_PRICEID}
-      Products__coffee-journal__SuccessUrl: "http://localhost:5224/success"
-      Products__coffee-journal__CancelUrl: "http://localhost:5224/pricing"
-      Products__coffee-journal__PortalReturnUrl: "http://localhost:5224/"
+      Products__coffee_journal__PriceId: ${STRIPE_COFFEE_JOURNAL_PRICEID}
+      Products__coffee_journal__SuccessUrl: "http://localhost:5224/success"
+      Products__coffee_journal__CancelUrl: "http://localhost:5224/pricing"
+      Products__coffee_journal__PortalReturnUrl: "http://localhost:5224/"
     depends_on:
       postgres:
         condition: service_healthy
@@ -179,7 +179,7 @@ services:
       ReverseProxy__Routes__billing-route__Order: "-20"
       ReverseProxy__Routes__billing-route__ClusterId: "payments-gateway"
       ReverseProxy__Routes__billing-route__Match__Path: "/api/billing/{**remainder}"
-      ReverseProxy__Routes__billing-route__Transforms__0__PathPattern: "/api/billing/coffee-journal/{**remainder}"
+      ReverseProxy__Routes__billing-route__Transforms__0__PathPattern: "/api/billing/coffee_journal/{**remainder}"
       ReverseProxy__Clusters__payments-gateway__Destinations__destination1__Address: "http://payments-gateway:8080/"
       # /api/* → sync API (path preserved; the API answers on /api/sync directly)
       ReverseProxy__Routes__api-route__Order: "-10"

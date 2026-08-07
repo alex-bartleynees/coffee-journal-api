@@ -25,4 +25,4 @@ export const AppConfig = {
 };
 
 /** Our slug in the shared multi-tenant Payments.Gateway. */
-export const PRODUCT_ID = 'coffee-journal';
+export const PRODUCT_ID = 'coffee_journal';
