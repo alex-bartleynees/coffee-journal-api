@@ -52,13 +52,11 @@ const signupRoute = Effect.gen(function* () {
 	const user = validateSignup(parsed);
 	if (!user) return yield* HttpServerResponse.json({ error: 'invalid_request' }, { status: 400 });
 
-	yield* keycloak.createUser(user);
-	return yield* HttpServerResponse.json({ created: true }, { status: 201 });
+	const outcome = yield* keycloak.createUser(user);
+	return yield* HttpServerResponse.json({ created: outcome === 'created', existing: outcome === 'existing' }, { status: 201 });
 }).pipe(
 	HttpServerRequest.withMaxBodySize(Option.some(FileSystem.KiB(4))),
 	Effect.catchTags({
-		KeycloakConflictError: () =>
-			HttpServerResponse.json({ error: 'account_may_exist' }, { status: 409 }),
 		KeycloakUnavailableError: (cause) =>
 			Effect.zipRight(
 				Effect.logError('Keycloak signup request failed', { reason: cause.reason }),

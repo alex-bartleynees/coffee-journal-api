@@ -5,8 +5,6 @@ export class KeycloakUnavailableError extends Data.TaggedError('KeycloakUnavaila
 	readonly reason: string;
 }> {}
 
-export class KeycloakConflictError extends Data.TaggedError('KeycloakConflictError')<{}> {}
-
 export type NewKeycloakUser = {
 	readonly name: string;
 	readonly email: string;
@@ -16,7 +14,7 @@ export type NewKeycloakUser = {
 export interface KeycloakService {
 	readonly createUser: (
 		user: NewKeycloakUser
-	) => Effect.Effect<void, KeycloakUnavailableError | KeycloakConflictError>;
+	) => Effect.Effect<'created' | 'existing', KeycloakUnavailableError>;
 }
 
 export class Keycloak extends Context.Tag('Keycloak')<Keycloak, KeycloakService>() {}
@@ -93,7 +91,7 @@ export const KeycloakLive = Layer.effect(
 					try: () => search.json() as Promise<unknown>,
 					catch: (cause) => new KeycloakUnavailableError({ reason: String(cause) })
 				})) as unknown;
-				if (Array.isArray(matches) && matches.length > 0) return yield* new KeycloakConflictError();
+				if (Array.isArray(matches) && matches.length > 0) return 'existing' as const;
 
 				const response = yield* Effect.tryPromise({
 					try: () =>
@@ -116,10 +114,14 @@ export const KeycloakLive = Layer.effect(
 					catch: (cause) => new KeycloakUnavailableError({ reason: String(cause) })
 				});
 
-				if (response.status === 409) return yield* new KeycloakConflictError();
+				// A concurrent request may create the identity after our lookup. Treat
+				// that exactly like the normal existing-user path: login still proves
+				// knowledge of the existing account's password.
+				if (response.status === 409) return 'existing' as const;
 				if (response.status !== 201) {
 					return yield* new KeycloakUnavailableError({ reason: `user creation returned ${response.status}` });
 				}
+				return 'created' as const;
 			});
 
 		return { createUser } satisfies KeycloakService;
