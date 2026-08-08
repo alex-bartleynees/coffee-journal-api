@@ -16,6 +16,11 @@ export const AppConfig = {
 	 */
 	jwksUrl: Config.string('KEYCLOAK_JWKS_URL').pipe(Config.withDefault('')),
 	issuer: Config.string('KEYCLOAK_ISSUER').pipe(Config.withDefault('')),
+	/** Keycloak service-account settings used only by the public signup endpoint. */
+	keycloakAdminBaseUrl: Config.string('KEYCLOAK_ADMIN_BASE_URL').pipe(Config.withDefault('')),
+	keycloakAdminRealm: Config.string('KEYCLOAK_ADMIN_REALM').pipe(Config.withDefault('')),
+	keycloakAdminClientId: Config.string('KEYCLOAK_ADMIN_CLIENT_ID').pipe(Config.withDefault('admin-cli')),
+	keycloakAdminClientSecret: Config.string('KEYCLOAK_ADMIN_CLIENT_SECRET').pipe(Config.withDefault('')),
 	/**
 	 * AMQP connection string for the entitlement consumer. Empty = consumer
 	 * disabled (sync still runs; the entitlement gate then only ever sees

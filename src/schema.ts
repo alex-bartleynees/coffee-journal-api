@@ -32,6 +32,14 @@ export const SyncRequest = Schema.Struct({
 });
 export type SyncRequest = typeof SyncRequest.Type;
 
+/** Public signup contract. Password confirmation stays in the browser. */
+export const CreateUserRequest = Schema.Struct({
+	name: Schema.String,
+	email: Schema.String,
+	password: Schema.String
+});
+export type CreateUserRequest = typeof CreateUserRequest.Type;
+
 /**
  * `SubscriptionEntitlementChanged` as published by the shared Payments.Gateway
  * (see `Common.IntegrationEvents.Payments` in that repo). PascalCase on the

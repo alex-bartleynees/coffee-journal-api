@@ -6,6 +6,7 @@ import { AppConfig } from './config.js';
 import { AuthLive } from './Auth.js';
 import { DatabaseLive } from './Database.js';
 import { EntitlementConsumerLive } from './Entitlements.js';
+import { KeycloakLive } from './Keycloak.js';
 import { router } from './http.js';
 
 const ServerLive = NodeHttpServer.layerConfig(() => createServer(), { port: AppConfig.port });
@@ -22,6 +23,7 @@ const AppLive = router.pipe(
 	),
 	HttpServer.withLogAddress,
 	Layer.merge(EntitlementConsumerLive),
+	Layer.provide(KeycloakLive),
 	Layer.provide(DatabaseLive),
 	Layer.provide(AuthLive),
 	Layer.provide(ServerLive)

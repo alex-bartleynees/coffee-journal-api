@@ -41,6 +41,13 @@ config:
   port: "3001"
   keycloakJwksUrl: "https://identity.alexbartleynees.com/realms/production/protocol/openid-connect/certs"
   keycloakIssuer: "https://identity.alexbartleynees.com/realms/production"
+  keycloakAdminBaseUrl: "https://identity.alexbartleynees.com"
+  keycloakAdminRealm: "production"
+  keycloakAdminClientId: "admin-cli"
+
+keycloakAdmin:
+  secretName: "keycloak-auth"
+  clientSecretKey: "ADMIN_CLIENT_SECRET"
 
 # DATABASE_URL — full postgres connection string (has credentials) → Secret.
 database:

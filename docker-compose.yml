@@ -115,6 +115,10 @@ services:
       # (x-dev-user header) — login through the BFF then won't authenticate.
       KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      KEYCLOAK_ADMIN_BASE_URL: "https://identity.alexbartleynees.com"
+      KEYCLOAK_ADMIN_REALM: "development"
+      KEYCLOAK_ADMIN_CLIENT_ID: "admin-cli"
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${ADMIN_CLIENT_SECRET}
       RABBITMQ_URL: "amqp://${RABBITMQ_USER:-bloom}:${RABBITMQ_PASS:-bloom}@rabbitmq:5672"
     depends_on:
       postgres:

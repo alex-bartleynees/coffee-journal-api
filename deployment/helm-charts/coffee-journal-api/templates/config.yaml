@@ -9,3 +9,6 @@ data:
   PORT: {{ .Values.config.port | quote }}
   KEYCLOAK_JWKS_URL: {{ .Values.config.keycloakJwksUrl | quote }}
   KEYCLOAK_ISSUER: {{ .Values.config.keycloakIssuer | quote }}
+  KEYCLOAK_ADMIN_BASE_URL: {{ .Values.config.keycloakAdminBaseUrl | quote }}
+  KEYCLOAK_ADMIN_REALM: {{ .Values.config.keycloakAdminRealm | quote }}
+  KEYCLOAK_ADMIN_CLIENT_ID: {{ .Values.config.keycloakAdminClientId | quote }}
