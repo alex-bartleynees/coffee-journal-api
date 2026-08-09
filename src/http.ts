@@ -73,6 +73,25 @@ const signupRoute = Effect.gen(function* () {
 	)
 );
 
+/** Register the authenticated Keycloak identity as a Bloom user. Idempotent and
+ * independent from subscription entitlement; the JWT proves account ownership. */
+const registerCurrentUserRoute = Effect.gen(function* () {
+	const request = yield* HttpServerRequest.HttpServerRequest;
+	const auth = yield* Auth;
+	const db = yield* Database;
+	const user = yield* auth.user(request.headers);
+	yield* db.registerUser(user.userId, user.email);
+	return yield* HttpServerResponse.json({ registered: true });
+}).pipe(
+	Effect.catchTags({ AuthError: () => textStatus('Unauthorized', 401) }),
+	Effect.catchAll((cause) =>
+		Effect.zipRight(
+			Effect.logError('user registration failed', cause),
+			textStatus('Internal server error', 500)
+		)
+	)
+);
+
 /**
  * POST /sync — authenticate, enforce the subscription entitlement (fail-closed
  * against the local read-model), decode the delta request, run the LWW
@@ -93,10 +112,10 @@ const syncRoute = Effect.gen(function* () {
 	if (!entitled) {
 		return yield* HttpServerResponse.json({ error: 'subscription_required' }, { status: 403 });
 	}
-	yield* db.touchUser(user.userId, user.email);
 
 	const body = yield* HttpServerRequest.schemaBodyJson(SyncRequest);
 	const result = yield* db.sync(user.userId, body);
+	yield* db.touchUser(user.userId, user.email);
 	return yield* HttpServerResponse.schemaJson(SyncResponse)(result);
 }).pipe(
 	Effect.catchTags({
@@ -115,6 +134,7 @@ const syncRoute = Effect.gen(function* () {
 export const router = HttpRouter.empty.pipe(
 	HttpRouter.get('/health', Effect.succeed(HttpServerResponse.text('ok'))),
 	HttpRouter.post('/api/users', signupRoute),
+	HttpRouter.post('/api/users/me', registerCurrentUserRoute),
 	HttpRouter.post('/sync', syncRoute),
 	// The BFF's YARP proxy forwards /api/* with the path intact, so the same
 	// handler answers under the /api prefix — no proxy-side path transform needed.

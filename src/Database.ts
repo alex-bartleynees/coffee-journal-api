@@ -19,9 +19,13 @@ export interface DatabaseService {
 	 */
 	readonly hasAccess: (userId: string) => Effect.Effect<boolean, DbError>;
 	/**
-	 * JIT-provision / refresh the thin users row on an entitled sync.
-	 * Bookkeeping only (ops/support/deletion anchor) — carries no credentials
-	 * and no access flags.
+	 * Register a verified Keycloak identity as a Bloom user on first authenticated
+	 * app session. This is deliberately independent from payment and sync access.
+	 */
+	readonly registerUser: (userId: string, email: string | null) => Effect.Effect<void, DbError>;
+	/**
+	 * Refresh the thin user row and last-sync timestamp after entitlement passes.
+	 * Also inserts defensively for older clients that never called /api/users/me.
 	 */
 	readonly touchUser: (userId: string, email: string | null) => Effect.Effect<void, DbError>;
 	/**
@@ -86,15 +90,19 @@ const migrate = (sql: postgres.Sql) =>
 				message_id   text NOT NULL PRIMARY KEY,
 				processed_at timestamptz NOT NULL DEFAULT now()
 			)`;
-		// Thin JIT users table — ops/support/deletion anchor. Identity lives in
-		// Keycloak; access lives in entitlements. Nothing sensitive here.
+		// Product-local user registry. Identity lives in Keycloak and access lives
+		// in entitlements; last_sync_at stays null until an entitled sync succeeds.
 		await sql`
 			CREATE TABLE IF NOT EXISTS users (
 				user_id      text NOT NULL PRIMARY KEY,
 				email        text,
 				created_at   timestamptz NOT NULL DEFAULT now(),
-				last_sync_at timestamptz NOT NULL DEFAULT now()
+				last_sync_at timestamptz
 			)`;
+		// Additive migration for databases created before authenticated-session
+		// registration: those rows had a mandatory defaulted sync timestamp.
+		await sql`ALTER TABLE users ALTER COLUMN last_sync_at DROP NOT NULL`;
+		await sql`ALTER TABLE users ALTER COLUMN last_sync_at DROP DEFAULT`;
 	});
 
 export const DatabaseLive = Layer.scoped(
@@ -174,12 +182,24 @@ export const DatabaseLive = Layer.scoped(
 				catch: (cause) => new DbError({ cause })
 			});
 
+		const registerUser: DatabaseService['registerUser'] = (userId, email) =>
+			Effect.tryPromise({
+				try: async () => {
+					await sql`
+						INSERT INTO users (user_id, email, last_sync_at)
+						VALUES (${userId}, ${email}, NULL)
+						ON CONFLICT (user_id) DO UPDATE
+							SET email = COALESCE(excluded.email, users.email)`;
+				},
+				catch: (cause) => new DbError({ cause })
+			});
+
 		const touchUser: DatabaseService['touchUser'] = (userId, email) =>
 			Effect.tryPromise({
 				try: async () => {
 					await sql`
-						INSERT INTO users (user_id, email)
-						VALUES (${userId}, ${email})
+						INSERT INTO users (user_id, email, last_sync_at)
+						VALUES (${userId}, ${email}, now())
 						ON CONFLICT (user_id) DO UPDATE
 							SET last_sync_at = now(),
 								email = COALESCE(excluded.email, users.email)`;
@@ -217,6 +237,6 @@ export const DatabaseLive = Layer.scoped(
 				catch: (cause) => new DbError({ cause })
 			});
 
-		return { sync, hasAccess, touchUser, applyEntitlement };
+		return { sync, hasAccess, registerUser, touchUser, applyEntitlement };
 	})
 );
