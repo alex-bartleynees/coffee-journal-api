@@ -39,6 +39,9 @@ service:
 # Non-secret env → ConfigMap. The Keycloak JWKS/issuer are public.
 config:
   port: "3001"
+  # The cluster is IPv4-only while Backblaze publishes A + AAAA records. Node's
+  # dual-stack family race can fail the whole request when IPv6 is unreachable.
+  nodeOptions: "--no-network-family-autoselection"
   keycloakJwksUrl: "https://identity.alexbartleynees.com/realms/production/protocol/openid-connect/certs"
   keycloakIssuer: "https://identity.alexbartleynees.com/realms/production"
   keycloakAdminBaseUrl: "https://identity.alexbartleynees.com"

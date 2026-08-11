@@ -7,6 +7,7 @@ metadata:
     {{- include "coffee-journal-api.labels" . | nindent 4 }}
 data:
   PORT: {{ .Values.config.port | quote }}
+  NODE_OPTIONS: {{ .Values.config.nodeOptions | quote }}
   KEYCLOAK_JWKS_URL: {{ .Values.config.keycloakJwksUrl | quote }}
   KEYCLOAK_ISSUER: {{ .Values.config.keycloakIssuer | quote }}
   KEYCLOAK_ADMIN_BASE_URL: {{ .Values.config.keycloakAdminBaseUrl | quote }}
