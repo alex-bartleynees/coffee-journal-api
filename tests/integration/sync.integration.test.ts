@@ -32,6 +32,17 @@ describe('sync', () => {
 		expect(await response.json()).toEqual({ error: 'subscription_required' });
 	});
 
+	it('checks entitlement before decoding the request body', async () => {
+		const response = await fetch(apiUrl('/api/sync'), {
+			method: 'POST',
+			headers: authenticatedHeaders(crypto.randomUUID(), { 'content-type': 'application/json' }),
+			body: '{invalid json'
+		});
+
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({ error: 'subscription_required' });
+	});
+
 	it('applies and pulls a record, then rejects an equal-timestamp update through the legacy alias', async () => {
 		const userId = crypto.randomUUID();
 		const recordId = crypto.randomUUID();

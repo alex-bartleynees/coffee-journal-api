@@ -39,7 +39,9 @@ const waitForApi = async (api: ChildProcess, baseUrl: string, output: () => stri
 	while (Date.now() < deadline) {
 		if (api.exitCode != null) throw new Error(`API exited during startup (${api.exitCode})\n${output()}`);
 		try {
-			const response = await fetch(`${baseUrl}/health`);
+			const response = await fetch(`${baseUrl}/health`, {
+				signal: AbortSignal.timeout(1_000)
+			});
 			if (response.ok) return;
 		} catch {
 			// The server has not bound its socket yet.
@@ -104,6 +106,7 @@ const setup = async () => {
 	try {
 		await waitForApi(api, apiBaseUrl, () => apiOutput);
 	} catch (error) {
+		console.error('[integration] API startup failed', error, apiOutput);
 		await stopProcess(api);
 		await Promise.all([database.stop(), objectStorage.stop(), rabbitMq.stop()]);
 		throw error;

@@ -1,8 +1,8 @@
 import amqplib, { type Channel, type ChannelModel, type ConsumeMessage } from 'amqplib';
 import { Duration, Effect, Layer, Runtime, Schedule, Schema } from 'effect';
-import { AppConfig, PRODUCT_ID } from './config.js';
-import { Database } from './Database.js';
-import { EntitlementEvent } from './schema.js';
+import { AppConfig, PRODUCT_ID } from '../../config.js';
+import { EntitlementEvent } from './contract.js';
+import { EntitlementRepository } from './repository.js';
 
 /**
  * RabbitMQ consumer for the shared Payments.Gateway's
@@ -38,8 +38,8 @@ const handleMessage = (channel: Channel, msg: ConsumeMessage) =>
 			return;
 		}
 
-		const db = yield* Database;
-		const applied = yield* db.applyEntitlement(event);
+		const entitlements = yield* EntitlementRepository;
+		const applied = yield* entitlements.apply(event);
 		channel.ack(msg);
 		yield* Effect.logInfo(
 			applied
@@ -60,7 +60,7 @@ const handleMessage = (channel: Channel, msg: ConsumeMessage) =>
 /** One connect-and-consume session; the returned effect fails when the connection dies. */
 const consumeSession = (url: string) =>
 	Effect.gen(function* () {
-		const db = yield* Database;
+		const entitlements = yield* EntitlementRepository;
 
 		const connection: ChannelModel = yield* Effect.tryPromise({
 			try: () => amqplib.connect(url),
@@ -92,14 +92,16 @@ const consumeSession = (url: string) =>
 			catch: (e) => new Error(`amqp topology failed: ${String(e)}`)
 		});
 
-		const runtime = yield* Effect.runtime<Database>();
+		const runtime = yield* Effect.runtime<EntitlementRepository>();
 
 		yield* Effect.tryPromise({
 			try: () =>
 				channel.consume(QUEUE, (msg) => {
 					if (msg) {
 						Runtime.runFork(runtime)(
-							handleMessage(channel, msg).pipe(Effect.provideService(Database, db))
+							handleMessage(channel, msg).pipe(
+								Effect.provideService(EntitlementRepository, entitlements)
+							)
 						);
 					}
 				}),

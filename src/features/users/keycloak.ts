@@ -1,5 +1,5 @@
 import { Context, Data, Effect, Layer } from 'effect';
-import { AppConfig } from './config.js';
+import { AppConfig } from '../../config.js';
 
 export class KeycloakUnavailableError extends Data.TaggedError('KeycloakUnavailableError')<{
 	readonly reason: string;

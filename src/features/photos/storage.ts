@@ -1,6 +1,6 @@
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Context, Data, Effect, Layer } from 'effect';
-import { AppConfig } from './config.js';
+import { AppConfig } from '../../config.js';
 
 export class PhotoStorageError extends Data.TaggedError('PhotoStorageError')<{
 	readonly cause: unknown;

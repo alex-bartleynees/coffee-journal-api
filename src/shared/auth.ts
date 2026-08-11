@@ -1,7 +1,7 @@
 import { Context, Data, Effect, Layer } from 'effect';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { Headers } from '@effect/platform';
-import { AppConfig } from './config.js';
+import { AppConfig } from '../config.js';
 
 export class AuthError extends Data.TaggedError('AuthError')<{ readonly reason: string }> {}
 
