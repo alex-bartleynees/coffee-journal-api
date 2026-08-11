@@ -4,6 +4,7 @@ import { Auth } from './Auth.js';
 import { Database } from './Database.js';
 import { Keycloak } from './Keycloak.js';
 import { PhotoStorage } from './PhotoStorage.js';
+import { usersRouter } from './features/users/router.js';
 import { CreateUserRequest, PhotoManifest, SyncRequest, SyncResponse } from './schema.js';
 
 const textStatus = (body: string, status: number) =>
@@ -71,25 +72,6 @@ const signupRoute = Effect.gen(function* () {
 		Effect.zipRight(
 			Effect.logError('signup failed', cause),
 			HttpServerResponse.json({ error: 'internal_error' }, { status: 500 })
-		)
-	)
-);
-
-/** Register the authenticated Keycloak identity as a Bloom user. Idempotent and
- * independent from subscription entitlement; the JWT proves account ownership. */
-const registerCurrentUserRoute = Effect.gen(function* () {
-	const request = yield* HttpServerRequest.HttpServerRequest;
-	const auth = yield* Auth;
-	const db = yield* Database;
-	const user = yield* auth.user(request.headers);
-	yield* db.registerUser(user.userId, user.email);
-	return yield* HttpServerResponse.json({ registered: true });
-}).pipe(
-	Effect.catchTags({ AuthError: () => textStatus('Unauthorized', 401) }),
-	Effect.catchAll((cause) =>
-		Effect.zipRight(
-			Effect.logError('user registration failed', cause),
-			textStatus('Internal server error', 500)
 		)
 	)
 );
@@ -219,9 +201,9 @@ const getPhotoRoute = photoFailure(Effect.gen(function* () {
 }));
 
 export const router = HttpRouter.empty.pipe(
+	HttpRouter.concat(usersRouter),
 	HttpRouter.get('/health', Effect.succeed(HttpServerResponse.text('ok'))),
 	HttpRouter.post('/api/users', signupRoute),
-	HttpRouter.post('/api/users/me', registerCurrentUserRoute),
 	HttpRouter.post('/sync', syncRoute),
 	// The BFF's YARP proxy forwards /api/* with the path intact, so the same
 	// handler answers under the /api prefix — no proxy-side path transform needed.

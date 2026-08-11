@@ -32,7 +32,10 @@ export const AppConfig = {
 	s3Region: Config.string('S3_REGION').pipe(Config.withDefault('')),
 	s3Bucket: Config.string('S3_BUCKET').pipe(Config.withDefault('')),
 	s3AccessKeyId: Config.string('S3_ACCESS_KEY_ID').pipe(Config.withDefault('')),
-	s3SecretAccessKey: Config.string('S3_SECRET_ACCESS_KEY').pipe(Config.withDefault(''))
+	s3SecretAccessKey: Config.string('S3_SECRET_ACCESS_KEY').pipe(Config.withDefault('')),
+	/** Path-style addressing is useful for S3-compatible local/test services;
+	 * Backblaze production keeps the default virtual-hosted addressing. */
+	s3ForcePathStyle: Config.boolean('S3_FORCE_PATH_STYLE').pipe(Config.withDefault(false))
 };
 
 /** Our slug in the shared multi-tenant Payments.Gateway. */

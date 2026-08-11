@@ -125,6 +125,7 @@ The `sync_records` table + `sync_seq` sequence are created automatically on boot
 | `DATABASE_URL` | `postgres://localhost:5432/coffee_journal` | Postgres connection |
 | `KEYCLOAK_JWKS_URL` | *(empty → dev mode)* | Realm JWKS endpoint |
 | `KEYCLOAK_ISSUER` | *(empty)* | Expected token issuer |
+| `S3_FORCE_PATH_STYLE` | `false` | Use path-style S3 addressing for compatible local/test services |
 
 ## Scripts
 
@@ -137,14 +138,17 @@ The `sync_records` table + `sync_seq` sequence are created automatically on boot
 
 ## Integration tests
 
-The integration suite starts one disposable Postgres 17 container, launches the
-real API process on an ephemeral local port, runs the normal startup migrations,
-and exercises the public HTTP contract. Keycloak uses the existing development
-auth seam (`x-dev-user`); RabbitMQ and S3 are disabled for this first suite.
+The integration harness starts disposable Postgres 17, RabbitMQ, and MinIO
+containers once for the test run, launches the real API process on an ephemeral
+local port, runs the normal startup migrations, and exercises the public HTTP
+contract. Keycloak alone uses the existing development-auth seam (`x-dev-user`).
+Tests are split by capability under `tests/integration/`; infrastructure lifecycle
+is owned once by the small `integration.test.ts` suite composition root.
 
 Current coverage freezes health, authentication, fail-closed entitlement access,
 idempotent user registration, both sync route aliases, LWW equal-timestamp
-rejection, tombstones, cursors, and per-user isolation. Docker must be running:
+rejection, tombstones, cursors, per-user isolation, the complete photo lifecycle,
+and RabbitMQ entitlement projection/filtering/deduplication. Docker must be running:
 
 ```sh
 nix develop -c npm test

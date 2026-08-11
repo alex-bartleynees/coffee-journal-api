@@ -22,9 +22,10 @@ export const PhotoStorageLive = Layer.effect(
 		const bucket = yield* AppConfig.s3Bucket;
 		const accessKeyId = yield* AppConfig.s3AccessKeyId;
 		const secretAccessKey = yield* AppConfig.s3SecretAccessKey;
+		const forcePathStyle = yield* AppConfig.s3ForcePathStyle;
 		const configured = endpoint && region && bucket && accessKeyId && secretAccessKey;
 		const client = configured
-			? new S3Client({ endpoint, region, credentials: { accessKeyId, secretAccessKey } })
+			? new S3Client({ endpoint, region, forcePathStyle, credentials: { accessKeyId, secretAccessKey } })
 			: null;
 
 		const run = <T>(operation: (client: S3Client) => Promise<T>) =>
