@@ -44,6 +44,14 @@ config:
   keycloakAdminBaseUrl: "https://identity.alexbartleynees.com"
   keycloakAdminRealm: "production"
   keycloakAdminClientId: "admin-cli"
+  s3Endpoint: "https://s3.us-east-005.backblazeb2.com"
+  s3Region: "us-east-005"
+  s3Bucket: "bloom-bean-photos-prod"
+
+s3:
+  secretName: "coffee-journal-s3-secret"
+  accessKeyIdKey: "S3_ACCESS_KEY_ID"
+  secretAccessKeyKey: "S3_SECRET_ACCESS_KEY"
 
 keycloakAdmin:
   secretName: "keycloak-auth"

@@ -27,6 +27,12 @@ export const AppConfig = {
 	 * whatever is already in the local read-model — fail-closed).
 	 */
 	rabbitMqUrl: Config.string('RABBITMQ_URL').pipe(Config.withDefault(''))
+	,
+	s3Endpoint: Config.string('S3_ENDPOINT').pipe(Config.withDefault('')),
+	s3Region: Config.string('S3_REGION').pipe(Config.withDefault('')),
+	s3Bucket: Config.string('S3_BUCKET').pipe(Config.withDefault('')),
+	s3AccessKeyId: Config.string('S3_ACCESS_KEY_ID').pipe(Config.withDefault('')),
+	s3SecretAccessKey: Config.string('S3_SECRET_ACCESS_KEY').pipe(Config.withDefault(''))
 };
 
 /** Our slug in the shared multi-tenant Payments.Gateway. */

@@ -70,3 +70,14 @@ export const SyncResponse = Schema.Struct({
 	cursor: Schema.Number
 });
 export type SyncResponse = typeof SyncResponse.Type;
+
+export const PhotoMetadata = Schema.Struct({
+	beanId: Schema.String,
+	updatedAt: Schema.Number,
+	deleted: Schema.Boolean,
+	mimeType: Schema.NullOr(Schema.String)
+});
+export type PhotoMetadata = typeof PhotoMetadata.Type;
+
+export const PhotoManifest = Schema.Struct({ photos: Schema.Array(PhotoMetadata) });
+export type PhotoManifest = typeof PhotoManifest.Type;

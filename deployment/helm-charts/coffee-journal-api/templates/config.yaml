@@ -12,3 +12,6 @@ data:
   KEYCLOAK_ADMIN_BASE_URL: {{ .Values.config.keycloakAdminBaseUrl | quote }}
   KEYCLOAK_ADMIN_REALM: {{ .Values.config.keycloakAdminRealm | quote }}
   KEYCLOAK_ADMIN_CLIENT_ID: {{ .Values.config.keycloakAdminClientId | quote }}
+  S3_ENDPOINT: {{ .Values.config.s3Endpoint | quote }}
+  S3_REGION: {{ .Values.config.s3Region | quote }}
+  S3_BUCKET: {{ .Values.config.s3Bucket | quote }}

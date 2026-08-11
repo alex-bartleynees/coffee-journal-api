@@ -59,6 +59,16 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.keycloakAdmin.secretName }}
                   key: {{ .Values.keycloakAdmin.clientSecretKey }}
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.secretName }}
+                  key: {{ .Values.s3.accessKeyIdKey }}
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.secretName }}
+                  key: {{ .Values.s3.secretAccessKeyKey }}
           envFrom:
             - configMapRef:
                 name: {{ include "coffee-journal-api.fullname" . }}-config

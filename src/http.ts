@@ -3,7 +3,8 @@ import { Effect, Option } from 'effect';
 import { Auth } from './Auth.js';
 import { Database } from './Database.js';
 import { Keycloak } from './Keycloak.js';
-import { CreateUserRequest, SyncRequest, SyncResponse } from './schema.js';
+import { PhotoStorage } from './PhotoStorage.js';
+import { CreateUserRequest, PhotoManifest, SyncRequest, SyncResponse } from './schema.js';
 
 const textStatus = (body: string, status: number) =>
 	Effect.succeed(HttpServerResponse.setStatus(HttpServerResponse.text(body), status));
@@ -11,6 +12,7 @@ const textStatus = (body: string, status: number) =>
 const signupAttempts = new Map<string, { count: number; resetsAt: number }>();
 const SIGNUP_WINDOW_MS = 15 * 60 * 1000;
 const SIGNUP_LIMIT = 5;
+const MAX_PHOTO_BYTES = FileSystem.MiB(2);
 
 function clientIp(headers: Record<string, string>): string {
 	return headers['x-forwarded-for']?.split(',')[0]?.trim() || headers['x-real-ip'] || 'unknown';
@@ -131,6 +133,91 @@ const syncRoute = Effect.gen(function* () {
 	)
 );
 
+const photoContext = Effect.gen(function* () {
+	const request = yield* HttpServerRequest.HttpServerRequest;
+	const auth = yield* Auth;
+	const db = yield* Database;
+	const user = yield* auth.user(request.headers);
+	if (!(yield* db.hasAccess(user.userId))) {
+		return yield* Effect.fail(new PhotoRouteError({ status: 403, code: 'subscription_required' }));
+	}
+	const params = yield* HttpRouter.params;
+	const beanId = params.beanId;
+	if (beanId != null && !/^[A-Za-z0-9_-]{1,128}$/.test(beanId)) {
+		return yield* Effect.fail(new PhotoRouteError({ status: 400, code: 'invalid_bean_id' }));
+	}
+	return { request, db, user, beanId };
+});
+
+class PhotoRouteError extends Error {
+	readonly _tag = 'PhotoRouteError';
+	constructor(readonly details: { status: number; code: string }) { super(details.code); }
+}
+
+const bestEffortDelete = (storage: PhotoStorage['Type'], key: string) =>
+	storage.delete(key).pipe(
+		Effect.catchAll((cause) => Effect.logWarning('Failed to remove superseded photo object', { key, cause }))
+	);
+
+const photoFailure = <E, R>(effect: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>) =>
+	effect.pipe(
+		Effect.catchAll((cause) => {
+			if (cause instanceof PhotoRouteError) {
+				return HttpServerResponse.json({ error: cause.details.code }, { status: cause.details.status });
+			}
+			if ((cause as { _tag?: string })._tag === 'AuthError') return textStatus('Unauthorized', 401);
+			return Effect.zipRight(Effect.logError('photo sync failed', cause), textStatus('Internal server error', 500));
+		})
+	);
+
+const photoManifestRoute = photoFailure(Effect.gen(function* () {
+	const { db, user } = yield* photoContext;
+	const photos = yield* db.listPhotos(user.userId);
+	return yield* HttpServerResponse.schemaJson(PhotoManifest)({ photos });
+}));
+
+const putPhotoRoute = photoFailure(Effect.gen(function* () {
+	const { request, db, user, beanId } = yield* photoContext;
+	const storage = yield* PhotoStorage;
+	const updatedAt = Number(request.headers['x-photo-updated-at']);
+	const mimeType = request.headers['content-type']?.split(';')[0]?.trim() ?? '';
+	if (!beanId || !Number.isSafeInteger(updatedAt) || updatedAt <= 0 || !/^image\/(webp|jpeg|png)$/.test(mimeType)) {
+		return yield* Effect.fail(new PhotoRouteError({ status: 400, code: 'invalid_photo' }));
+	}
+	const bytes = new Uint8Array(yield* request.arrayBuffer);
+	if (bytes.byteLength === 0) return yield* Effect.fail(new PhotoRouteError({ status: 400, code: 'empty_photo' }));
+	const key = `users/${encodeURIComponent(user.userId)}/beans/${beanId}/${updatedAt}`;
+	yield* storage.put(key, bytes, mimeType);
+	const result = yield* db.applyPhoto(user.userId, { beanId, updatedAt, deleted: false, mimeType }, key);
+	if (!result.applied) yield* bestEffortDelete(storage, key);
+	else if (result.previousObjectKey && result.previousObjectKey !== key) yield* bestEffortDelete(storage, result.previousObjectKey);
+	return yield* HttpServerResponse.json({ applied: result.applied, photo: { beanId: result.current.beanId, updatedAt: result.current.updatedAt, deleted: result.current.deleted, mimeType: result.current.mimeType } });
+}).pipe(HttpServerRequest.withMaxBodySize(Option.some(MAX_PHOTO_BYTES))));
+
+const deletePhotoRoute = photoFailure(Effect.gen(function* () {
+	const { request, db, user, beanId } = yield* photoContext;
+	const storage = yield* PhotoStorage;
+	const updatedAt = Number(request.headers['x-photo-updated-at']);
+	if (!beanId || !Number.isSafeInteger(updatedAt) || updatedAt <= 0) {
+		return yield* Effect.fail(new PhotoRouteError({ status: 400, code: 'invalid_photo' }));
+	}
+	const result = yield* db.applyPhoto(user.userId, { beanId, updatedAt, deleted: true, mimeType: null }, null);
+	if (result.applied && result.previousObjectKey) yield* bestEffortDelete(storage, result.previousObjectKey);
+	return yield* HttpServerResponse.json({ applied: result.applied, photo: { beanId: result.current.beanId, updatedAt: result.current.updatedAt, deleted: result.current.deleted, mimeType: result.current.mimeType } });
+}));
+
+const getPhotoRoute = photoFailure(Effect.gen(function* () {
+	const { db, user, beanId } = yield* photoContext;
+	const storage = yield* PhotoStorage;
+	if (!beanId) return yield* Effect.fail(new PhotoRouteError({ status: 400, code: 'invalid_bean_id' }));
+	const photo = yield* db.getPhoto(user.userId, beanId);
+	if (!photo || photo.deleted || !photo.objectKey || !photo.mimeType) {
+		return yield* Effect.fail(new PhotoRouteError({ status: 404, code: 'photo_not_found' }));
+	}
+	const bytes = yield* storage.get(photo.objectKey);
+	return HttpServerResponse.uint8Array(bytes, { contentType: photo.mimeType });
+}));
+
 export const router = HttpRouter.empty.pipe(
 	HttpRouter.get('/health', Effect.succeed(HttpServerResponse.text('ok'))),
 	HttpRouter.post('/api/users', signupRoute),
@@ -139,4 +226,9 @@ export const router = HttpRouter.empty.pipe(
 	// The BFF's YARP proxy forwards /api/* with the path intact, so the same
 	// handler answers under the /api prefix — no proxy-side path transform needed.
 	HttpRouter.post('/api/sync', syncRoute)
+	,
+	HttpRouter.get('/api/photos', photoManifestRoute),
+	HttpRouter.put('/api/photos/:beanId', putPhotoRoute),
+	HttpRouter.get('/api/photos/:beanId', getPhotoRoute),
+	HttpRouter.del('/api/photos/:beanId', deletePhotoRoute)
 );

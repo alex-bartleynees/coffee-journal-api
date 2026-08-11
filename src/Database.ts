@@ -1,7 +1,7 @@
 import { Context, Data, Effect, Layer } from 'effect';
 import postgres from 'postgres';
 import { AppConfig } from './config.js';
-import type { EntitlementEvent, SyncRecord, SyncRequest, SyncResponse } from './schema.js';
+import type { EntitlementEvent, PhotoMetadata, SyncRecord, SyncRequest, SyncResponse } from './schema.js';
 
 export class DbError extends Data.TaggedError('DbError')<{ readonly cause: unknown }> {}
 
@@ -34,6 +34,9 @@ export interface DatabaseService {
 	 * ProductId. Returns false when the message was a duplicate.
 	 */
 	readonly applyEntitlement: (event: EntitlementEvent) => Effect.Effect<boolean, DbError>;
+	readonly listPhotos: (userId: string) => Effect.Effect<PhotoMetadata[], DbError>;
+	readonly getPhoto: (userId: string, beanId: string) => Effect.Effect<(PhotoMetadata & { objectKey: string | null }) | null, DbError>;
+	readonly applyPhoto: (userId: string, photo: PhotoMetadata, objectKey: string | null) => Effect.Effect<{ applied: boolean; current: PhotoMetadata & { objectKey: string | null }; previousObjectKey: string | null }, DbError>;
 }
 
 export class Database extends Context.Tag('Database')<Database, DatabaseService>() {}
@@ -103,6 +106,16 @@ const migrate = (sql: postgres.Sql) =>
 		// registration: those rows had a mandatory defaulted sync timestamp.
 		await sql`ALTER TABLE users ALTER COLUMN last_sync_at DROP NOT NULL`;
 		await sql`ALTER TABLE users ALTER COLUMN last_sync_at DROP DEFAULT`;
+		await sql`
+			CREATE TABLE IF NOT EXISTS bean_photos (
+				user_id    text NOT NULL,
+				bean_id    text NOT NULL,
+				updated_at bigint NOT NULL,
+				deleted    boolean NOT NULL DEFAULT false,
+				mime_type  text,
+				object_key text,
+				PRIMARY KEY (user_id, bean_id)
+			)`;
 	});
 
 export const DatabaseLive = Layer.scoped(
@@ -237,6 +250,47 @@ export const DatabaseLive = Layer.scoped(
 				catch: (cause) => new DbError({ cause })
 			});
 
-		return { sync, hasAccess, registerUser, touchUser, applyEntitlement };
+		const listPhotos: DatabaseService['listPhotos'] = (userId) =>
+			Effect.tryPromise({
+				try: async () => (await sql<{ bean_id: string; updated_at: string; deleted: boolean; mime_type: string | null }[]>`
+					SELECT bean_id, updated_at, deleted, mime_type FROM bean_photos WHERE user_id = ${userId}`)
+					.map((row) => ({ beanId: row.bean_id, updatedAt: Number(row.updated_at), deleted: row.deleted, mimeType: row.mime_type })),
+				catch: (cause) => new DbError({ cause })
+			});
+
+		const getPhoto: DatabaseService['getPhoto'] = (userId, beanId) =>
+			Effect.tryPromise({
+				try: async () => {
+					const rows = await sql<{ bean_id: string; updated_at: string; deleted: boolean; mime_type: string | null; object_key: string | null }[]>`
+						SELECT bean_id, updated_at, deleted, mime_type, object_key FROM bean_photos
+						WHERE user_id = ${userId} AND bean_id = ${beanId}`;
+					const row = rows[0];
+					return row ? { beanId: row.bean_id, updatedAt: Number(row.updated_at), deleted: row.deleted, mimeType: row.mime_type, objectKey: row.object_key } : null;
+				},
+				catch: (cause) => new DbError({ cause })
+			});
+
+		const applyPhoto: DatabaseService['applyPhoto'] = (userId, photo, objectKey) =>
+			Effect.tryPromise({
+				try: () => sql.begin(async (tx) => {
+					const before = await tx<{ object_key: string | null }[]>`SELECT object_key FROM bean_photos WHERE user_id = ${userId} AND bean_id = ${photo.beanId}`;
+					const rows = await tx<{ bean_id: string; updated_at: string; deleted: boolean; mime_type: string | null; object_key: string | null }[]>`
+						INSERT INTO bean_photos AS bp (user_id, bean_id, updated_at, deleted, mime_type, object_key)
+						VALUES (${userId}, ${photo.beanId}, ${photo.updatedAt}, ${photo.deleted}, ${photo.mimeType}, ${objectKey})
+						ON CONFLICT (user_id, bean_id) DO UPDATE SET
+							updated_at = excluded.updated_at, deleted = excluded.deleted,
+							mime_type = excluded.mime_type, object_key = excluded.object_key
+						WHERE excluded.updated_at > bp.updated_at
+						RETURNING bean_id, updated_at, deleted, mime_type, object_key`;
+					const applied = rows.length > 0;
+					const currentRows = applied ? rows : await tx<{ bean_id: string; updated_at: string; deleted: boolean; mime_type: string | null; object_key: string | null }[]>`
+						SELECT bean_id, updated_at, deleted, mime_type, object_key FROM bean_photos WHERE user_id = ${userId} AND bean_id = ${photo.beanId}`;
+					const current = currentRows[0]!;
+					return { applied, current: { beanId: current.bean_id, updatedAt: Number(current.updated_at), deleted: current.deleted, mimeType: current.mime_type, objectKey: current.object_key }, previousObjectKey: applied ? (before[0]?.object_key ?? null) : null };
+				}) as Promise<{ applied: boolean; current: PhotoMetadata & { objectKey: string | null }; previousObjectKey: string | null }>,
+				catch: (cause) => new DbError({ cause })
+			});
+
+		return { sync, hasAccess, registerUser, touchUser, applyEntitlement, listPhotos, getPhoto, applyPhoto };
 	})
 );
