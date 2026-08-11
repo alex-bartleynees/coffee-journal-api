@@ -129,6 +129,23 @@ The `sync_records` table + `sync_seq` sequence are created automatically on boot
 ## Scripts
 
 - `npm run dev` — watch-run with tsx
+- `npm test` — strict-check and run the Vitest integration suite against a throwaway Postgres 17 Testcontainer (Docker required)
+- `npm run test:types` — strict-check production and test TypeScript
 - `npm run check` — `tsc --noEmit`
 - `npm run build` — compile to `dist/`
 - `npm start` — run once
+
+## Integration tests
+
+The integration suite starts one disposable Postgres 17 container, launches the
+real API process on an ephemeral local port, runs the normal startup migrations,
+and exercises the public HTTP contract. Keycloak uses the existing development
+auth seam (`x-dev-user`); RabbitMQ and S3 are disabled for this first suite.
+
+Current coverage freezes health, authentication, fail-closed entitlement access,
+idempotent user registration, both sync route aliases, LWW equal-timestamp
+rejection, tombstones, cursors, and per-user isolation. Docker must be running:
+
+```sh
+nix develop -c npm test
+```

@@ -23,6 +23,9 @@ jobs:
       - name: Type-check
         run: npm run check
 
+      - name: Integration tests
+        run: npm test
+
   build-and-deploy:
     needs: test
     runs-on: ubuntu-latest

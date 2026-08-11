@@ -22,3 +22,6 @@ jobs:
 
       - name: Type-check
         run: npm run check
+
+      - name: Integration tests
+        run: npm test
