@@ -5,7 +5,7 @@ namespace: "coffee-journal"
 image:
   repository: creativefree/coffee-journal-api
   pullPolicy: IfNotPresent
-  tag: "c0003c2"
+  tag: "57db5c1"
 
 imagePullSecrets: []
 nameOverride: ""
