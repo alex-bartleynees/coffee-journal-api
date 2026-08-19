@@ -1,4 +1,4 @@
-import { Data } from 'effect';
+import { Data } from "effect";
 
-export class InvalidSignup extends Data.TaggedError('InvalidSignup') {}
-export class SignupRateLimited extends Data.TaggedError('SignupRateLimited') {}
+export class InvalidSignup extends Data.TaggedError("InvalidSignup") {}
+export class SignupRateLimited extends Data.TaggedError("SignupRateLimited") {}

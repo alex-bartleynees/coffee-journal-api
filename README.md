@@ -180,23 +180,23 @@ All owned tables and the `sync_seq` sequence are created additively on boot by
 
 ## Env
 
-| Var | Default | Purpose |
-|---|---|---|
-| `PORT` | `3001` | HTTP listen port |
-| `DATABASE_URL` | `postgres://localhost:5432/coffee_journal` | Postgres connection |
-| `KEYCLOAK_JWKS_URL` | *(empty → dev mode)* | Realm JWKS endpoint |
-| `KEYCLOAK_ISSUER` | *(empty)* | Expected token issuer |
-| `KEYCLOAK_ADMIN_BASE_URL` | *(empty)* | Keycloak base URL used by public signup |
-| `KEYCLOAK_ADMIN_REALM` | *(empty)* | Realm in which signup creates users |
-| `KEYCLOAK_ADMIN_CLIENT_ID` | `admin-cli` | Signup service-account client |
-| `KEYCLOAK_ADMIN_CLIENT_SECRET` | *(empty)* | Signup service-account secret |
-| `RABBITMQ_URL` | *(empty → consumer disabled)* | Payments entitlement broker URL |
-| `S3_ENDPOINT` | *(empty)* | S3-compatible photo endpoint |
-| `S3_REGION` | *(empty)* | Photo bucket region |
-| `S3_BUCKET` | *(empty)* | Private photo bucket |
-| `S3_ACCESS_KEY_ID` | *(empty)* | Photo-storage access key |
-| `S3_SECRET_ACCESS_KEY` | *(empty)* | Photo-storage secret key |
-| `S3_FORCE_PATH_STYLE` | `false` | Use path-style S3 addressing for compatible local/test services |
+| Var                            | Default                                    | Purpose                                                         |
+| ------------------------------ | ------------------------------------------ | --------------------------------------------------------------- |
+| `PORT`                         | `3001`                                     | HTTP listen port                                                |
+| `DATABASE_URL`                 | `postgres://localhost:5432/coffee_journal` | Postgres connection                                             |
+| `KEYCLOAK_JWKS_URL`            | _(empty → dev mode)_                       | Realm JWKS endpoint                                             |
+| `KEYCLOAK_ISSUER`              | _(empty)_                                  | Expected token issuer                                           |
+| `KEYCLOAK_ADMIN_BASE_URL`      | _(empty)_                                  | Keycloak base URL used by public signup                         |
+| `KEYCLOAK_ADMIN_REALM`         | _(empty)_                                  | Realm in which signup creates users                             |
+| `KEYCLOAK_ADMIN_CLIENT_ID`     | `admin-cli`                                | Signup service-account client                                   |
+| `KEYCLOAK_ADMIN_CLIENT_SECRET` | _(empty)_                                  | Signup service-account secret                                   |
+| `RABBITMQ_URL`                 | _(empty → consumer disabled)_              | Payments entitlement broker URL                                 |
+| `S3_ENDPOINT`                  | _(empty)_                                  | S3-compatible photo endpoint                                    |
+| `S3_REGION`                    | _(empty)_                                  | Photo bucket region                                             |
+| `S3_BUCKET`                    | _(empty)_                                  | Private photo bucket                                            |
+| `S3_ACCESS_KEY_ID`             | _(empty)_                                  | Photo-storage access key                                        |
+| `S3_SECRET_ACCESS_KEY`         | _(empty)_                                  | Photo-storage secret key                                        |
+| `S3_FORCE_PATH_STYLE`          | `false`                                    | Use path-style S3 addressing for compatible local/test services |
 
 ## Scripts
 

@@ -1,7 +1,8 @@
-import { Schema } from 'effect';
+import { Schema } from "effect";
 
 export const RegisterCurrentUserResponse = Schema.Struct({
-	registered: Schema.Literal(true)
+  registered: Schema.Literal(true),
 });
 
-export type RegisterCurrentUserResponse = typeof RegisterCurrentUserResponse.Type;
+export type RegisterCurrentUserResponse =
+  typeof RegisterCurrentUserResponse.Type;

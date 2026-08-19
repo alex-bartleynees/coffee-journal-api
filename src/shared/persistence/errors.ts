@@ -1,3 +1,5 @@
-import { Data } from 'effect';
+import { Data } from "effect";
 
-export class DbError extends Data.TaggedError('DbError')<{ readonly cause: unknown }> {}
+export class DbError extends Data.TaggedError("DbError")<{
+  readonly cause: unknown;
+}> {}
