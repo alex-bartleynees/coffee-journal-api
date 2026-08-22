@@ -69,6 +69,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.s3.secretName }}
                   key: {{ .Values.s3.secretAccessKeyKey }}
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.openrouter.secretName }}
+                  key: {{ .Values.openrouter.apiKeyKey }}
           envFrom:
             - configMapRef:
                 name: {{ include "coffee-journal-api.fullname" . }}-config

@@ -16,3 +16,4 @@ data:
   S3_ENDPOINT: {{ .Values.config.s3Endpoint | quote }}
   S3_REGION: {{ .Values.config.s3Region | quote }}
   S3_BUCKET: {{ .Values.config.s3Bucket | quote }}
+  AI_BEAN_EXTRACTION_MODEL: {{ .Values.config.aiBeanExtractionModel | quote }}

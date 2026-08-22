@@ -3,6 +3,7 @@ import { HttpMiddleware, HttpServer } from "@effect/platform";
 import { NodeHttpServer } from "@effect/platform-node";
 import { Layer } from "effect";
 import { AppConfig } from "../config.js";
+import { BeanExtractorLive } from "../features/ai/bean-extraction/extractor.js";
 import { EntitlementConsumerLive } from "../features/entitlements/consumer.js";
 import { EntitlementRepositoryLive } from "../features/entitlements/postgres-repository.js";
 import { PhotoRepositoryLive } from "../features/photos/postgres-repository.js";
@@ -44,5 +45,6 @@ export const AppLive = router.pipe(
   Layer.provide(PersistenceLive),
   Layer.provide(AuthLive),
   Layer.provide(PhotoStorageLive),
+  Layer.provide(BeanExtractorLive),
   Layer.provide(ServerLive),
 );

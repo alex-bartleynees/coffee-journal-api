@@ -1,4 +1,4 @@
-import { Config } from "effect";
+import { Config, Redacted } from "effect";
 
 /**
  * Service configuration, read from the environment (see `.env.example`).
@@ -46,6 +46,13 @@ export const AppConfig = {
    * Backblaze production keeps the default virtual-hosted addressing. */
   s3ForcePathStyle: Config.boolean("S3_FORCE_PATH_STYLE").pipe(
     Config.withDefault(false),
+  ),
+  openRouterApiKey: Config.redacted("OPENROUTER_API_KEY").pipe(
+    Config.map(Redacted.value),
+    Config.withDefault(""),
+  ),
+  beanExtractionModel: Config.string("AI_BEAN_EXTRACTION_MODEL").pipe(
+    Config.withDefault("google/gemini-2.5-flash-lite"),
   ),
 };
 
