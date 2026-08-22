@@ -45,7 +45,10 @@ const endpoint = Effect.gen(function* () {
   const extractor = yield* BeanExtractor;
   const result = yield* extractor.extract(bytes, mimeType);
   return yield* HttpServerResponse.schemaJson(BeanExtractionResponse)(result);
-}).pipe(HttpServerRequest.withMaxBodySize(Option.some(MAX_IMAGE_BYTES)));
+}).pipe(
+  Effect.withSpan("coffee.bean_extraction", { kind: "internal" }),
+  HttpServerRequest.withMaxBodySize(Option.some(MAX_IMAGE_BYTES)),
+);
 
 export const beanExtractionEndpoint = endpoint.pipe(
   Effect.catchAll((cause) => {

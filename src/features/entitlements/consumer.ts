@@ -3,6 +3,14 @@ import amqplib, {
   type ChannelModel,
   type ConsumeMessage,
 } from "amqplib";
+import {
+  context,
+  propagation,
+  trace,
+  type SpanContext,
+  type TextMapGetter,
+} from "@opentelemetry/api";
+import * as OtelTracer from "@effect/opentelemetry/Tracer";
 import { Duration, Effect, Layer, Runtime, Schedule, Schema } from "effect";
 import { AppConfig, PRODUCT_ID } from "../../config.js";
 import { EntitlementEvent } from "./contract.js";
@@ -33,8 +41,39 @@ const DLQ = `${QUEUE}.dlq`;
 
 const decodeEvent = Schema.decodeUnknown(Schema.parseJson(EntitlementEvent));
 
-const handleMessage = (channel: Channel, msg: ConsumeMessage) =>
-  Effect.gen(function* () {
+type RabbitHeaders = NonNullable<ConsumeMessage["properties"]["headers"]>;
+
+const rabbitHeaderGetter: TextMapGetter<RabbitHeaders> = {
+  keys: (carrier) => Object.keys(carrier),
+  get: (carrier, key) => {
+    const headerKey = Object.keys(carrier).find(
+      (candidate) => candidate.toLowerCase() === key.toLowerCase(),
+    );
+    const value = headerKey === undefined ? undefined : carrier[headerKey];
+    if (typeof value === "string") return value;
+    if (Buffer.isBuffer(value)) return value.toString("utf8");
+    return undefined;
+  },
+};
+
+export const extractParentSpanContext = (
+  headers: ConsumeMessage["properties"]["headers"],
+): SpanContext | undefined => {
+  if (headers === undefined) return undefined;
+
+  const extracted = propagation.extract(
+    context.active(),
+    headers,
+    rabbitHeaderGetter,
+  );
+  const parent = trace.getSpanContext(extracted);
+  return parent !== undefined && trace.isSpanContextValid(parent)
+    ? parent
+    : undefined;
+};
+
+const handleMessage = (channel: Channel, msg: ConsumeMessage) => {
+  let processing = Effect.gen(function* () {
     const event = yield* decodeEvent(msg.content.toString("utf8"));
 
     if (event.ProductId !== PRODUCT_ID) {
@@ -51,6 +90,13 @@ const handleMessage = (channel: Channel, msg: ConsumeMessage) =>
         : `[entitlements] duplicate message ${event.MessageId} skipped`,
     );
   }).pipe(
+    Effect.withSpan("coffee.entitlement.process", {
+      kind: "consumer",
+      attributes: {
+        "messaging.system": "rabbitmq",
+        "messaging.destination.name": QUEUE,
+      },
+    }),
     Effect.catchAll((error) =>
       Effect.sync(() => {
         // Undecodable or unprocessable → DLQ (nack, no requeue), so one bad
@@ -60,6 +106,14 @@ const handleMessage = (channel: Channel, msg: ConsumeMessage) =>
       }),
     ),
   );
+
+  const parent = extractParentSpanContext(msg.properties.headers);
+  if (parent !== undefined) {
+    processing = OtelTracer.withSpanContext(processing, parent);
+  }
+
+  return processing;
+};
 
 /** One connect-and-consume session; the returned effect fails when the connection dies. */
 const consumeSession = (url: string) =>

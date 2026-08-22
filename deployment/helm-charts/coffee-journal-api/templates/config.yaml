@@ -17,3 +17,7 @@ data:
   S3_REGION: {{ .Values.config.s3Region | quote }}
   S3_BUCKET: {{ .Values.config.s3Bucket | quote }}
   AI_BEAN_EXTRACTION_MODEL: {{ .Values.config.aiBeanExtractionModel | quote }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.config.otlpEndpoint | quote }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: {{ .Values.config.otlpProtocol | quote }}
+  OTEL_SERVICE_VERSION: {{ .Values.image.tag | quote }}
+  NODE_ENV: {{ .Values.config.deploymentEnvironment | quote }}

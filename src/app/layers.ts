@@ -13,6 +13,7 @@ import { UserRepositoryLive } from "../features/users/postgres-repository.js";
 import { KeycloakLive } from "../features/users/keycloak.js";
 import { AuthLive } from "../shared/auth.js";
 import { PostgresLive } from "../shared/persistence/Postgres.js";
+import { TelemetryLive } from "../telemetry.js";
 import { router } from "./router.js";
 
 const ServerLive = NodeHttpServer.layerConfig(() => createServer(), {
@@ -47,4 +48,6 @@ export const AppLive = router.pipe(
   Layer.provide(PhotoStorageLive),
   Layer.provide(BeanExtractorLive),
   Layer.provide(ServerLive),
+  HttpMiddleware.withTracerDisabledForUrls(["/health"]),
+  Layer.provide(TelemetryLive),
 );

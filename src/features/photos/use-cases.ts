@@ -27,7 +27,12 @@ export const listPhotos = (userId: string) =>
   Effect.gen(function* () {
     const photos = yield* PhotoRepository;
     return yield* photos.list(userId);
-  });
+  }).pipe(
+    Effect.withSpan("coffee.photo", {
+      kind: "internal",
+      attributes: { "coffee.photo.operation": "list" },
+    }),
+  );
 
 export const putPhoto = (
   userId: string,
@@ -48,7 +53,16 @@ export const putPhoto = (
       applied: result.applied,
       photo: publicPhoto(result.current),
     } satisfies PhotoMutationResponse;
-  });
+  }).pipe(
+    Effect.withSpan("coffee.photo", {
+      kind: "internal",
+      attributes: {
+        "coffee.photo.operation": "put",
+        "coffee.photo.content_type": photo.mimeType,
+        "coffee.photo.size": bytes.byteLength,
+      },
+    }),
+  );
 
 export const deletePhoto = (userId: string, photo: PhotoMetadata) =>
   Effect.gen(function* () {
@@ -62,7 +76,12 @@ export const deletePhoto = (userId: string, photo: PhotoMetadata) =>
       applied: result.applied,
       photo: publicPhoto(result.current),
     } satisfies PhotoMutationResponse;
-  });
+  }).pipe(
+    Effect.withSpan("coffee.photo", {
+      kind: "internal",
+      attributes: { "coffee.photo.operation": "delete" },
+    }),
+  );
 
 export const getPhoto = (userId: string, beanId: string) =>
   Effect.gen(function* () {
@@ -79,4 +98,9 @@ export const getPhoto = (userId: string, beanId: string) =>
       bytes: yield* storage.get(photo.objectKey),
       mimeType: photo.mimeType,
     };
-  });
+  }).pipe(
+    Effect.withSpan("coffee.photo", {
+      kind: "internal",
+      attributes: { "coffee.photo.operation": "get" },
+    }),
+  );

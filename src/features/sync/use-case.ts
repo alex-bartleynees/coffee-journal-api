@@ -25,4 +25,9 @@ export const synchronize = (user: AuthUser, request: SyncRequest) =>
     const response = yield* sync.run(user.userId, request);
     yield* users.touchAfterSync(user.userId, user.email);
     return response;
-  });
+  }).pipe(
+    Effect.withSpan("coffee.sync", {
+      kind: "internal",
+      attributes: { "coffee.sync.change_count": request.changes.length },
+    }),
+  );
