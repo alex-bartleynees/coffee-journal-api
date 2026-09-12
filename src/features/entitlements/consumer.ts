@@ -20,9 +20,8 @@ import {
   Schedule,
   Schema,
 } from "effect";
-import { PRODUCT_ID } from "../../config.js";
 import { EntitlementConsumerConfig } from "./config.js";
-import { EntitlementEvent } from "./contract.js";
+import { EntitlementEvent, PRODUCT_ID } from "./contract.js";
 import { EntitlementRepository } from "./repository.js";
 
 /**

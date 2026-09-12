@@ -19,7 +19,7 @@ import { router } from "./router.js";
 import { McpAccessGrantRepositoryLive } from "../features/mcp/access-grants/postgres-repository.js";
 
 const ServerLive = NodeHttpServer.layerConfig(() => createServer(), {
-  port: AppConfig.port,
+  port: AppConfig.server.port,
 });
 
 const PersistenceLive = Layer.mergeAll(

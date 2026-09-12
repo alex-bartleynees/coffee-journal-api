@@ -4,8 +4,9 @@ export const TelemetryConfig = Effect.gen(function* () {
   const endpoint = yield* Config.string("OTEL_EXPORTER_OTLP_ENDPOINT").pipe(
     Config.withDefault(""),
   );
-  if (endpoint.trim() === "") return { enabled: false } as const;
-
+  if (endpoint.trim() === "") {
+    return { enabled: false } as const;
+  }
   return {
     enabled: true,
     endpoint: yield* Config.url("OTEL_EXPORTER_OTLP_ENDPOINT"),
