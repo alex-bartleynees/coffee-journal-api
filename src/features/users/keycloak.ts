@@ -1,5 +1,5 @@
-import { Context, Data, Effect, Layer } from "effect";
-import { AppConfig } from "../../config.js";
+import { Context, Data, Effect, Layer, Redacted } from "effect";
+import { KeycloakAdminConfig } from "./keycloak-config.js";
 
 export class KeycloakUnavailableError extends Data.TaggedError(
   "KeycloakUnavailableError",
@@ -32,30 +32,36 @@ const fetchWithTimeout = (url: string, init: RequestInit) =>
 export const KeycloakLive = Layer.effect(
   Keycloak,
   Effect.gen(function* () {
-    const baseUrl = (yield* AppConfig.keycloakAdminBaseUrl).replace(/\/$/, "");
-    const realm = yield* AppConfig.keycloakAdminRealm;
-    const clientId = yield* AppConfig.keycloakAdminClientId;
-    const clientSecret = yield* AppConfig.keycloakAdminClientSecret;
+    const settings = yield* KeycloakAdminConfig;
+    if (!settings.enabled) {
+      return Keycloak.of({
+        createUser: () =>
+          Effect.fail(
+            new KeycloakUnavailableError({
+              reason: "Keycloak signup service is not configured",
+            }),
+          ),
+      });
+    }
+    const baseUrl = settings.baseUrl.toString().replace(/\/$/, "");
+    const clientSecret = Redacted.value(settings.clientSecret);
 
     let accessToken = "";
     let tokenExpiresAt = 0;
 
     const token = Effect.tryPromise({
       try: async () => {
-        if (baseUrl === "" || realm === "" || clientSecret === "") {
-          throw new Error("Keycloak signup service is not configured");
-        }
         if (accessToken !== "" && Date.now() < tokenExpiresAt)
           return accessToken;
 
         const response = await fetchWithTimeout(
-          `${baseUrl}/realms/${encodeURIComponent(realm)}/protocol/openid-connect/token`,
+          `${baseUrl}/realms/${encodeURIComponent(settings.realm)}/protocol/openid-connect/token`,
           {
             method: "POST",
             headers: { "content-type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
               grant_type: "client_credentials",
-              client_id: clientId,
+              client_id: settings.clientId,
               client_secret: clientSecret,
             }),
           },
@@ -86,7 +92,7 @@ export const KeycloakLive = Layer.effect(
             : normalizedName.slice(0, firstSpace);
         const lastName =
           firstSpace === -1 ? "" : normalizedName.slice(firstSpace + 1);
-        const endpoint = `${baseUrl}/admin/realms/${encodeURIComponent(realm)}/users`;
+        const endpoint = `${baseUrl}/admin/realms/${encodeURIComponent(settings.realm)}/users`;
 
         // The lookup improves the common existing-account response. Creation's 409
         // remains authoritative when concurrent requests race.

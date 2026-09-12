@@ -119,10 +119,8 @@ docker exec coffee-journal-postgres psql -U postgres -d coffee_journal -c \
 
 Protected endpoints resolve the user from the `Authorization: Bearer <jwt>` header,
 verified against the Keycloak realm JWKS (`KEYCLOAK_JWKS_URL` / `KEYCLOAK_ISSUER`).
-
-When `KEYCLOAK_JWKS_URL` is unset the service runs in **dev mode** and trusts an
-`x-dev-user: <id>` header instead — so sync can be exercised before the Keycloak
-client is wired up (Step 3). Never deploy without `KEYCLOAK_JWKS_URL` set.
+Both settings are required in every environment; there is no header-based
+authentication bypass.
 
 ## Full local stack (docker compose)
 
@@ -166,11 +164,11 @@ nix develop -c createdb -h localhost -p 5433 -U postgres coffee_journal
 
 # 2. install + configure + run
 nix develop -c npm install
-cp .env.example .env        # optional — edit as needed (gitignored)
+cp .env.example .env        # edit as needed (gitignored)
 nix develop -c npm run dev  # loads .env if present (--env-file-if-exists)
 
-# 3. smoke test (dev auth)
-curl -s -X POST localhost:3001/sync -H 'x-dev-user: me' \
+# 3. smoke test with a Keycloak access token
+curl -s -X POST localhost:3001/sync -H 'authorization: Bearer <token>' \
   -H 'content-type: application/json' \
   -d '{"since":0,"changes":[{"entity":"bean","id":"b_1","updatedAt":1,"deleted":false,"payload":{"name":"Suke Quto"}}]}'
 ```
@@ -184,24 +182,26 @@ All owned tables and the `sync_seq` sequence are created additively on boot by
 | ------------------------------ | ------------------------------------------ | --------------------------------------------------------------- |
 | `PORT`                         | `3001`                                     | HTTP listen port                                                |
 | `DATABASE_URL`                 | `postgres://localhost:5432/coffee_journal` | Postgres connection                                             |
-| `KEYCLOAK_JWKS_URL`            | _(empty → dev mode)_                       | Realm JWKS endpoint                                             |
-| `KEYCLOAK_ISSUER`              | _(empty)_                                  | Expected token issuer                                           |
+| `KEYCLOAK_JWKS_URL`            | _(required)_                               | Realm JWKS endpoint                                             |
+| `KEYCLOAK_ISSUER`              | _(required)_                               | Expected token issuer                                           |
 | `MCP_ENABLED`                  | `false`                                    | Enable the fail-closed MCP endpoint                              |
 | `MCP_RESOURCE_URL`             | _(empty)_                                  | Public MCP resource URL (required when enabled)                  |
 | `MCP_AUDIENCE`                 | _(empty)_                                  | Required MCP access-token audience                               |
 | `MCP_REQUIRED_SCOPE`           | `coffee-journal:read`                      | Required MCP OAuth scope                                         |
-| `MCP_ALLOWED_USER_IDS`         | _(empty)_                                  | Bootstrap comma-separated Keycloak subjects allowed to connect  |
 | `KEYCLOAK_ADMIN_BASE_URL`      | _(empty)_                                  | Keycloak base URL used by public signup                         |
 | `KEYCLOAK_ADMIN_REALM`         | _(empty)_                                  | Realm in which signup creates users                             |
 | `KEYCLOAK_ADMIN_CLIENT_ID`     | `admin-cli`                                | Signup service-account client                                   |
-| `KEYCLOAK_ADMIN_CLIENT_SECRET` | _(empty)_                                  | Signup service-account secret                                   |
+| `KEYCLOAK_ADMIN_CLIENT_SECRET` | _(empty → signup admin disabled)_          | Signup service-account secret                                   |
 | `RABBITMQ_URL`                 | _(empty → consumer disabled)_              | Payments entitlement broker URL                                 |
-| `S3_ENDPOINT`                  | _(empty)_                                  | S3-compatible photo endpoint                                    |
+| `S3_ENDPOINT`                  | _(empty → photo storage disabled)_         | S3-compatible photo endpoint                                    |
 | `S3_REGION`                    | _(empty)_                                  | Photo bucket region                                             |
 | `S3_BUCKET`                    | _(empty)_                                  | Private photo bucket                                            |
 | `S3_ACCESS_KEY_ID`             | _(empty)_                                  | Photo-storage access key                                        |
 | `S3_SECRET_ACCESS_KEY`         | _(empty)_                                  | Photo-storage secret key                                        |
 | `S3_FORCE_PATH_STYLE`          | `false`                                    | Use path-style S3 addressing for compatible local/test services |
+| `OPENROUTER_API_KEY`           | _(empty → extraction disabled)_            | Bean-extraction provider credential                              |
+| `AI_BEAN_EXTRACTION_MODEL`     | `google/gemini-2.5-flash-lite`             | Bean-extraction model                                            |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`  | _(empty → telemetry disabled)_             | OpenTelemetry collector endpoint                                |
 
 ## Scripts
 
@@ -218,8 +218,9 @@ The integration harness starts disposable Postgres 17, RabbitMQ, and MinIO
 containers once for the test run, launches the real API process on an ephemeral
 local port, runs the normal startup migrations, and exercises the public HTTP
 contract. MinIO exercises the real AWS SDK adapter. Public signup deliberately
-uses an unavailable Keycloak configuration to verify validation and 503 mapping;
-protected endpoints use the development-auth seam (`x-dev-user`).
+uses an unavailable Keycloak administration configuration to verify validation
+and 503 mapping. Protected endpoints use locally signed JWTs verified through a
+test-owned JWKS server.
 Tests are split by capability under `tests/integration/`; infrastructure lifecycle
 is owned once by the small `integration.test.ts` suite composition root.
 

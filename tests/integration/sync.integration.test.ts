@@ -32,7 +32,7 @@ describe("sync", () => {
 
     expect(response.status).toBe(401);
     expect(await response.text()).toBe(
-      "Unauthorized: dev mode: missing x-dev-user header",
+      "Unauthorized: missing bearer token",
     );
   });
 

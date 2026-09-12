@@ -38,7 +38,6 @@ export const AppLive = router.pipe(
       allowedHeaders: [
         "content-type",
         "authorization",
-        "x-dev-user",
         "x-photo-updated-at",
       ],
     }),

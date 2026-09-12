@@ -1,12 +1,12 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, Output } from "ai";
-import { Context, Effect, Layer } from "effect";
-import { AppConfig } from "../../../config.js";
+import { Context, Effect, Layer, Redacted } from "effect";
 import {
   type BeanExtraction,
   beanExtractionSchema,
 } from "./contract.js";
 import { BeanExtractionError } from "./errors.js";
+import { BeanExtractionConfig } from "./config.js";
 
 export const BEAN_EXTRACTION_SYSTEM_PROMPT = [
   "You extract factual product-label data from an image of a coffee bag.",
@@ -33,17 +33,25 @@ export class BeanExtractor extends Context.Tag("BeanExtractor")<
 export const BeanExtractorLive = Layer.effect(
   BeanExtractor,
   Effect.gen(function* () {
-    const apiKey = yield* AppConfig.openRouterApiKey;
-    const model = yield* AppConfig.beanExtractionModel;
+    const settings = yield* BeanExtractionConfig;
+    if (!settings.enabled) {
+      return BeanExtractor.of({
+        extract: () =>
+          Effect.fail(
+            new BeanExtractionError({ message: "Bean extraction is disabled" }),
+          ),
+      });
+    }
+    const openrouter = createOpenRouter({
+      apiKey: Redacted.value(settings.apiKey),
+    });
 
     return BeanExtractor.of({
       extract: (bytes, mimeType) =>
         Effect.tryPromise({
           try: async () => {
-            if (!apiKey) throw new Error("OPENROUTER_API_KEY is not configured");
-            const openrouter = createOpenRouter({ apiKey });
             const { output } = await generateText({
-              model: openrouter(model),
+              model: openrouter(settings.model),
               system: BEAN_EXTRACTION_SYSTEM_PROMPT,
               messages: [
                 {

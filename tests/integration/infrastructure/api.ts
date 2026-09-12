@@ -7,6 +7,6 @@ export const authenticatedHeaders = (
   userId: string,
   headers: Readonly<Record<string, string>> = {},
 ): Record<string, string> => ({
-  "x-dev-user": userId,
+  authorization: `Bearer ${integrationContext().accessToken(userId)}`,
   ...headers,
 });

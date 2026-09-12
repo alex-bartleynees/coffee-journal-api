@@ -5,27 +5,30 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
 import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { Effect, Layer } from "effect";
+import { TelemetryConfig } from "./telemetry-config.js";
 
-const exporterConfigured = Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT);
-
-export const TelemetryLive = exporterConfigured
-  ? NodeSdk.layer(() => ({
+export const TelemetryLive = Layer.unwrapEffect(
+  Effect.map(TelemetryConfig, (settings) => {
+    if (!settings.enabled) return NodeSdk.layerEmpty;
+    const url = settings.endpoint.toString();
+    return NodeSdk.layer(() => ({
       resource: {
         serviceName: "coffee-journal-api",
-        serviceVersion: process.env.OTEL_SERVICE_VERSION ?? "0.0.1",
+        serviceVersion: settings.serviceVersion,
         attributes: {
           "service.namespace": "coffee-journal",
-          "service.instance.id": process.env.HOSTNAME ?? String(process.pid),
-          "deployment.environment.name":
-            process.env.NODE_ENV ?? "development",
+          "service.instance.id": settings.instanceId,
+          "deployment.environment.name": settings.deploymentEnvironment,
         },
       },
-      spanProcessor: new BatchSpanProcessor(new OTLPTraceExporter()),
+      spanProcessor: new BatchSpanProcessor(new OTLPTraceExporter({ url })),
       metricReader: new PeriodicExportingMetricReader({
-        exporter: new OTLPMetricExporter(),
+        exporter: new OTLPMetricExporter({ url }),
       }),
       logRecordProcessor: new BatchLogRecordProcessor({
-        exporter: new OTLPLogExporter(),
+        exporter: new OTLPLogExporter({ url }),
       }),
-    }))
-  : NodeSdk.layerEmpty;
+    }));
+  }),
+);

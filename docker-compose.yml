@@ -111,10 +111,8 @@ services:
       PORT: 3001
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/coffee_journal"
       # Shared Keycloak realm (same identity server the BFF logs in against).
-      # Leave KEYCLOAK_JWKS_URL empty in .env to run the API in dev-auth mode
-      # (x-dev-user header) — login through the BFF then won't authenticate.
-      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL:-https://identity.alexbartleynees.com/realms/development/protocol/openid-connect/certs}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://identity.alexbartleynees.com/realms/development}
       MCP_ENABLED: ${MCP_ENABLED:-false}
       MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-}
       MCP_AUDIENCE: ${MCP_AUDIENCE:-}

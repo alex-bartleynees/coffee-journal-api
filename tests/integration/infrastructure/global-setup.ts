@@ -1,5 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { createServer } from "node:net";
+import { generateKeyPairSync, sign } from "node:crypto";
+import { createServer as createHttpServer, type Server } from "node:http";
+import { createServer as createTcpServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import {
@@ -21,16 +23,27 @@ const MINIO_IMAGE = "minio/minio:RELEASE.2025-07-23T15-54-02Z";
 const RABBITMQ_IMAGE = "rabbitmq:3-management";
 const PHOTO_BUCKET = "bloom-integration-photos";
 const STARTUP_TIMEOUT_MS = 30_000;
+const JWT_KEY_ID = "integration-test-key";
+const { privateKey: jwtPrivateKey, publicKey: jwtPublicKey } =
+  generateKeyPairSync("rsa", { modulusLength: 2048 });
+const publicJwk = {
+  ...jwtPublicKey.export({ format: "jwk" }),
+  alg: "RS256",
+  kid: JWT_KEY_ID,
+  use: "sig",
+};
 
 let database: StartedPostgreSqlContainer | undefined;
 let objectStorage: StartedMinioContainer | undefined;
 let rabbitMq: StartedRabbitMQContainer | undefined;
 let api: ChildProcess | undefined;
 let apiBaseUrl: string | undefined;
+let jwksServer: Server | undefined;
+let jwtIssuer: string | undefined;
 
 const availablePort = () =>
   new Promise<number>((resolve, reject) => {
-    const server = createServer();
+    const server = createTcpServer();
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
@@ -78,6 +91,24 @@ const stopProcess = async (process: ChildProcess) => {
   ]);
 };
 
+const stopServer = (server: Server) =>
+  new Promise<void>((resolve, reject) =>
+    server.close((error) => (error ? reject(error) : resolve())),
+  );
+
+const accessToken = (userId: string): string => {
+  if (jwtIssuer == null) throw new Error("Integration JWKS server has not started");
+  const encode = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  const now = Math.floor(Date.now() / 1_000);
+  const header = encode({ alg: "RS256", kid: JWT_KEY_ID, typ: "JWT" });
+  const payload = encode({ sub: userId, iss: jwtIssuer, iat: now, exp: now + 3600 });
+  const unsignedToken = `${header}.${payload}`;
+  const signature = sign("RSA-SHA256", Buffer.from(unsignedToken), jwtPrivateKey)
+    .toString("base64url");
+  return `${unsignedToken}.${signature}`;
+};
+
 const setup = async () => {
   [database, objectStorage, rabbitMq] = await Promise.all([
     new PostgreSqlContainer(POSTGRES_IMAGE)
@@ -99,6 +130,21 @@ const setup = async () => {
   await s3.send(new CreateBucketCommand({ Bucket: PHOTO_BUCKET }));
   s3.destroy();
 
+  const jwksPort = await availablePort();
+  jwtIssuer = `http://127.0.0.1:${jwksPort}`;
+  jwksServer = createHttpServer((request, response) => {
+    if (request.url !== "/jwks") {
+      response.writeHead(404).end();
+      return;
+    }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ keys: [publicJwk] }));
+  });
+  await new Promise<void>((resolve, reject) => {
+    jwksServer?.once("error", reject);
+    jwksServer?.listen(jwksPort, "127.0.0.1", resolve);
+  });
+
   const port = await availablePort();
   apiBaseUrl = `http://127.0.0.1:${port}`;
   let apiOutput = "";
@@ -108,8 +154,8 @@ const setup = async () => {
       ...process.env,
       PORT: String(port),
       DATABASE_URL: database.getConnectionUri(),
-      KEYCLOAK_JWKS_URL: "",
-      KEYCLOAK_ISSUER: "",
+      KEYCLOAK_JWKS_URL: `${jwtIssuer}/jwks`,
+      KEYCLOAK_ISSUER: jwtIssuer,
       MCP_ENABLED: "false",
       RABBITMQ_URL: rabbitMq.getAmqpUrl(),
       S3_ENDPOINT: objectStorage.getConnectionUrl(),
@@ -133,6 +179,7 @@ const setup = async () => {
   } catch (error) {
     console.error("[integration] API startup failed", error, apiOutput);
     await stopProcess(api);
+    if (jwksServer != null) await stopServer(jwksServer);
     await Promise.all([database.stop(), objectStorage.stop(), rabbitMq.stop()]);
     throw error;
   }
@@ -140,6 +187,7 @@ const setup = async () => {
 
 const teardown = async () => {
   if (api != null) await stopProcess(api);
+  if (jwksServer != null) await stopServer(jwksServer);
   await Promise.all([
     database?.stop(),
     objectStorage?.stop(),
@@ -160,5 +208,6 @@ export const integrationContext = () => {
     apiBaseUrl,
     databaseUrl: database.getConnectionUri(),
     rabbitMqUrl: rabbitMq.getAmqpUrl(),
+    accessToken,
   };
 };

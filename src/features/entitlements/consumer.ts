@@ -11,8 +11,17 @@ import {
   type TextMapGetter,
 } from "@opentelemetry/api";
 import * as OtelTracer from "@effect/opentelemetry/Tracer";
-import { Duration, Effect, Layer, Runtime, Schedule, Schema } from "effect";
-import { AppConfig, PRODUCT_ID } from "../../config.js";
+import {
+  Duration,
+  Effect,
+  Layer,
+  Redacted,
+  Runtime,
+  Schedule,
+  Schema,
+} from "effect";
+import { PRODUCT_ID } from "../../config.js";
+import { EntitlementConsumerConfig } from "./config.js";
 import { EntitlementEvent } from "./contract.js";
 import { EntitlementRepository } from "./repository.js";
 
@@ -191,13 +200,14 @@ const consumeSession = (url: string) =>
 
 export const EntitlementConsumerLive = Layer.effectDiscard(
   Effect.gen(function* () {
-    const url = yield* AppConfig.rabbitMqUrl;
-    if (url === "") {
+    const settings = yield* EntitlementConsumerConfig;
+    if (!settings.enabled) {
       yield* Effect.logWarning(
         "[entitlements] RABBITMQ_URL unset — consumer disabled; entitlement read-model will not update",
       );
       return;
     }
+    const url = Redacted.value(settings.url);
     yield* Effect.forkDaemon(
       consumeSession(url).pipe(
         Effect.tapError((e) =>
