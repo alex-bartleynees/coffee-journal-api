@@ -19,7 +19,7 @@ import {
 import { afterAll, beforeAll } from "vitest";
 
 const POSTGRES_IMAGE = "postgres:17";
-const MINIO_IMAGE = "minio/minio:RELEASE.2025-07-23T15-54-02Z";
+const MINIO_IMAGE = "quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z";
 const RABBITMQ_IMAGE = "rabbitmq:3-management";
 const PHOTO_BUCKET = "bloom-integration-photos";
 const STARTUP_TIMEOUT_MS = 30_000;
