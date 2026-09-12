@@ -2,10 +2,11 @@
 
 Backend for the [Bloom coffee journal app](../coffee-app). This Node/Effect
 service owns identity registration, subscription-gated record and photo sync,
-and the local entitlement projection consumed from Payments.Gateway.
+AI bean-label extraction, a read-only MCP transport, and the local entitlement
+projection consumed from Payments.Gateway.
 
-Architecture and protocol decisions live in `API Architecture Refactor Plan`
-and `Sync-Protocol` in the project wiki.
+Architecture and protocol decisions live in `Strict REPR Architecture`,
+`API Architecture Refactor Plan`, and `Sync-Protocol` in the project wiki.
 
 ## Stack
 
@@ -21,7 +22,7 @@ and `Sync-Protocol` in the project wiki.
 
 ## Architecture
 
-The service combines REPR-style endpoints, pragmatic vertical slices, selected
+The service combines strict REPR endpoints, pragmatic vertical slices, selected
 DDD concepts, and a thin shared kernel. Effect `Context.Tag` interfaces are the
 seams between use cases and infrastructure; production adapters are assembled
 once with `Layer`.
@@ -32,10 +33,14 @@ src/
 │   ├── router.ts                 # health + feature-router composition
 │   └── layers.ts                 # production adapters and HTTP server
 ├── features/
-│   ├── users/                    # signup and current-user registration
-│   ├── sync/                     # transactional LWW push/pull
-│   ├── photos/                   # metadata reconciliation + object lifecycle
-│   └── entitlements/             # access read model + RabbitMQ consumer
+│   ├── users/
+│   │   ├── signup/               # request → endpoint → response
+│   │   └── register-current/     # request → endpoint → response
+│   ├── sync/                     # request → endpoint → response + shared model
+│   ├── photos/                   # four REPR operations + shared photo model
+│   ├── ai/bean-extraction/       # binary request → endpoint → response
+│   ├── mcp/                      # Web Request → endpoint → Web Response
+│   └── entitlements/             # access read model + RabbitMQ event consumer
 ├── shared/
 │   ├── auth.ts                   # authenticated-user seam and JWT adapter
 │   └── persistence/              # scoped Postgres client, errors, migrations
@@ -43,10 +48,13 @@ src/
 └── index.ts                      # five-line process launch boundary
 ```
 
-Each feature owns its contracts, endpoint handlers, use-case orchestration,
-repository interface, and Postgres adapter. Users owns its Keycloak adapter;
-Photos owns its S3 adapter; Entitlements owns its RabbitMQ contract and consumer.
-The shared kernel contains only stable cross-feature capabilities.
+Each application operation owns explicit `request.ts`, `endpoint.ts`, and
+`response.ts` files. Stable concepts shared by operations live in `model.ts`;
+asynchronous message schemas use names such as `event.ts`. Features also own
+their use-case orchestration, repository interfaces, and adapters. Users owns
+its Keycloak adapter; Photos owns its S3 adapter; Entitlements owns its RabbitMQ
+event and consumer. The shared kernel contains only stable cross-feature
+capabilities.
 
 Dependency direction:
 
@@ -64,6 +72,10 @@ Rules for new work:
 - Give every application endpoint an explicit request representation and response representation.
   For non-JSON requests, decode route parameters, headers, identity, and body into one
   operation-owned request value before invoking the use case.
+- Put validation and normalization that define a request in `request.ts`. Keep a
+  separate validation helper only when multiple operations genuinely share the rules.
+- Do not add generic `contract.ts` files or alias-only Request/Response files. Reuse
+  stable nested models while allowing each operation's wire interface to evolve independently.
 - Keep transport parsing and response encoding in endpoints, orchestration in use cases,
   and SQL/external SDK calls in adapters.
 - Prefer capability-specific interfaces such as `SyncRepository`; do not reintroduce
@@ -85,6 +97,10 @@ Rules for new work:
 - `GET /api/photos/:beanId` (auth + entitlement required) — download photo bytes
 - `DELETE /api/photos/:beanId` (auth + entitlement required) — apply a photo
   tombstone; requires `x-photo-updated-at`
+- `POST /api/ai/bean-extraction` (auth + entitlement required) — extract
+  structured coffee-label fields from a JPEG, PNG, or WebP body up to 2 MiB
+- `/mcp` (disabled by default) — read-only Streamable HTTP MCP transport with
+  OAuth audience, scope, and per-user access-grant enforcement when enabled
 
 Conflict resolution is last-write-wins on each record's `updatedAt`
 (client wall-clock ms). `server_seq` (a global Postgres sequence) is the pull
@@ -172,7 +188,7 @@ cp .env.example .env        # edit as needed (gitignored)
 nix develop -c npm run dev  # loads .env if present (--env-file-if-exists)
 
 # 3. smoke test with a Keycloak access token
-curl -s -X POST localhost:3001/sync -H 'authorization: Bearer <token>' \
+curl -s -X POST localhost:3001/api/sync -H 'authorization: Bearer <token>' \
   -H 'content-type: application/json' \
   -d '{"since":0,"changes":[{"entity":"bean","id":"b_1","updatedAt":1,"deleted":false,"payload":{"name":"Suke Quto"}}]}'
 ```
@@ -229,13 +245,14 @@ Tests are split by capability under `tests/integration/`; infrastructure lifecyc
 is owned once by the small `integration.test.ts` suite composition root.
 
 Current coverage freezes health, authentication, fail-closed entitlement access,
-idempotent user registration, both sync route aliases, LWW equal-timestamp
+idempotent user registration, the `/api/sync` route, LWW equal-timestamp
 rejection, tombstones, cursors, per-user isolation, the complete photo lifecycle,
-and RabbitMQ entitlement projection/filtering/deduplication. Docker must be running:
+RabbitMQ entitlement projection/filtering/deduplication, AI extraction guards,
+and MCP access grants. Docker must be running:
 
 ```sh
 nix develop -c npm test
 ```
 
-The suite currently contains 15 tests across health, users, sync, photos, and
-entitlements. CI runs the same `npm test` command.
+The suite currently contains 24 tests across health, users, sync, photos,
+entitlements, AI extraction, and MCP. CI runs the same `npm test` command.
