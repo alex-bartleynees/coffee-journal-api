@@ -44,6 +44,12 @@ config:
   nodeOptions: "--no-network-family-autoselection"
   keycloakJwksUrl: "https://identity.alexbartleynees.com/realms/production/protocol/openid-connect/certs"
   keycloakIssuer: "https://identity.alexbartleynees.com/realms/production"
+  # Keep unavailable until the dedicated Keycloak audience/scope and initial
+  # user grant have been configured.
+  mcpEnabled: "false"
+  mcpResourceUrl: ""
+  mcpAudience: ""
+  mcpRequiredScope: "coffee-journal:read"
   keycloakAdminBaseUrl: "https://identity.alexbartleynees.com"
   keycloakAdminRealm: "production"
   keycloakAdminClientId: "admin-cli"

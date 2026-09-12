@@ -51,4 +51,12 @@ export const migrate = (sql: postgres.Sql) =>
 				object_key text,
 				PRIMARY KEY (user_id, bean_id)
 			)`;
+    await sql`
+		CREATE TABLE IF NOT EXISTS mcp_access_grants (
+			user_id text NOT NULL PRIMARY KEY,
+			enabled boolean NOT NULL DEFAULT true,
+			granted_at timestamptz NOT NULL DEFAULT now(),
+			revoked_at timestamptz,
+			granted_by text
+		)`;
   });

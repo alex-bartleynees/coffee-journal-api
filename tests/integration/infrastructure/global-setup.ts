@@ -110,6 +110,7 @@ const setup = async () => {
       DATABASE_URL: database.getConnectionUri(),
       KEYCLOAK_JWKS_URL: "",
       KEYCLOAK_ISSUER: "",
+      MCP_ENABLED: "false",
       RABBITMQ_URL: rabbitMq.getAmqpUrl(),
       S3_ENDPOINT: objectStorage.getConnectionUrl(),
       S3_REGION: "us-east-1",

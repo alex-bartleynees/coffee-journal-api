@@ -186,6 +186,11 @@ All owned tables and the `sync_seq` sequence are created additively on boot by
 | `DATABASE_URL`                 | `postgres://localhost:5432/coffee_journal` | Postgres connection                                             |
 | `KEYCLOAK_JWKS_URL`            | _(empty → dev mode)_                       | Realm JWKS endpoint                                             |
 | `KEYCLOAK_ISSUER`              | _(empty)_                                  | Expected token issuer                                           |
+| `MCP_ENABLED`                  | `false`                                    | Enable the fail-closed MCP endpoint                              |
+| `MCP_RESOURCE_URL`             | _(empty)_                                  | Public MCP resource URL (required when enabled)                  |
+| `MCP_AUDIENCE`                 | _(empty)_                                  | Required MCP access-token audience                               |
+| `MCP_REQUIRED_SCOPE`           | `coffee-journal:read`                      | Required MCP OAuth scope                                         |
+| `MCP_ALLOWED_USER_IDS`         | _(empty)_                                  | Bootstrap comma-separated Keycloak subjects allowed to connect  |
 | `KEYCLOAK_ADMIN_BASE_URL`      | _(empty)_                                  | Keycloak base URL used by public signup                         |
 | `KEYCLOAK_ADMIN_REALM`         | _(empty)_                                  | Realm in which signup creates users                             |
 | `KEYCLOAK_ADMIN_CLIENT_ID`     | `admin-cli`                                | Signup service-account client                                   |

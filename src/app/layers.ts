@@ -6,6 +6,7 @@ import { AppConfig } from "../config.js";
 import { BeanExtractorLive } from "../features/ai/bean-extraction/extractor.js";
 import { EntitlementConsumerLive } from "../features/entitlements/consumer.js";
 import { EntitlementRepositoryLive } from "../features/entitlements/postgres-repository.js";
+import { McpGatewayLive } from "../features/mcp/gateway.js";
 import { PhotoRepositoryLive } from "../features/photos/postgres-repository.js";
 import { PhotoStorageLive } from "../features/photos/storage.js";
 import { SyncRepositoryLive } from "../features/sync/postgres-repository.js";
@@ -15,6 +16,7 @@ import { AuthLive } from "../shared/auth.js";
 import { PostgresLive } from "../shared/persistence/Postgres.js";
 import { TelemetryLive } from "../telemetry.js";
 import { router } from "./router.js";
+import { McpAccessGrantRepositoryLive } from "../features/mcp/access-grants/postgres-repository.js";
 
 const ServerLive = NodeHttpServer.layerConfig(() => createServer(), {
   port: AppConfig.port,
@@ -25,6 +27,7 @@ const PersistenceLive = Layer.mergeAll(
   PhotoRepositoryLive,
   SyncRepositoryLive,
   UserRepositoryLive,
+  McpAccessGrantRepositoryLive,
 ).pipe(Layer.provide(PostgresLive));
 
 export const AppLive = router.pipe(
@@ -43,6 +46,7 @@ export const AppLive = router.pipe(
   HttpServer.withLogAddress,
   Layer.merge(EntitlementConsumerLive),
   Layer.provide(KeycloakLive),
+  Layer.provide(McpGatewayLive),
   Layer.provide(PersistenceLive),
   Layer.provide(AuthLive),
   Layer.provide(PhotoStorageLive),

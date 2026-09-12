@@ -16,6 +16,16 @@ export const AppConfig = {
    */
   jwksUrl: Config.string("KEYCLOAK_JWKS_URL").pipe(Config.withDefault("")),
   issuer: Config.string("KEYCLOAK_ISSUER").pipe(Config.withDefault("")),
+  /** The MCP surface is opt-in and refuses to start when enabled without its
+   * complete resource-server configuration. */
+  mcpEnabled: Config.boolean("MCP_ENABLED").pipe(Config.withDefault(false)),
+  mcpResourceUrl: Config.string("MCP_RESOURCE_URL").pipe(
+    Config.withDefault(""),
+  ),
+  mcpAudience: Config.string("MCP_AUDIENCE").pipe(Config.withDefault("")),
+  mcpRequiredScope: Config.string("MCP_REQUIRED_SCOPE").pipe(
+    Config.withDefault("coffee-journal:read"),
+  ),
   /** Keycloak service-account settings used only by the public signup endpoint. */
   keycloakAdminBaseUrl: Config.string("KEYCLOAK_ADMIN_BASE_URL").pipe(
     Config.withDefault(""),

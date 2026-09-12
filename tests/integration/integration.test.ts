@@ -4,6 +4,8 @@ import "./sync.integration.test.js";
 import "./photos.integration.test.js";
 import "./entitlements.integration.test.js";
 import "./ai.integration.test.js";
+import "./mcp.integration.test.js";
+import "./mcp-access-grants.integration.test.js";
 import { registerIntegrationInfrastructure } from "./infrastructure/global-setup.js";
 
 registerIntegrationInfrastructure();

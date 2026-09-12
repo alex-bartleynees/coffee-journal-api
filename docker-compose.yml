@@ -115,6 +115,10 @@ services:
       # (x-dev-user header) — login through the BFF then won't authenticate.
       KEYCLOAK_JWKS_URL: ${KEYCLOAK_JWKS_URL}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      MCP_ENABLED: ${MCP_ENABLED:-false}
+      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-}
+      MCP_AUDIENCE: ${MCP_AUDIENCE:-}
+      MCP_REQUIRED_SCOPE: ${MCP_REQUIRED_SCOPE:-coffee-journal:read}
       KEYCLOAK_ADMIN_BASE_URL: "https://identity.alexbartleynees.com"
       KEYCLOAK_ADMIN_REALM: "development"
       KEYCLOAK_ADMIN_CLIENT_ID: "admin-cli"
