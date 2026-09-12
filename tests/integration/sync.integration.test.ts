@@ -4,7 +4,7 @@ import { apiUrl, authenticatedHeaders } from "./infrastructure/api.js";
 import { integrationContext } from "./infrastructure/global-setup.js";
 
 const sync = (
-  path: "/api/sync" | "/sync",
+  path: "/api/sync",
   userId: string | null,
   body: unknown,
 ) =>
@@ -59,7 +59,28 @@ describe("sync", () => {
     expect(await response.json()).toEqual({ error: "subscription_required" });
   });
 
-  it("applies and pulls a record, then rejects an equal-timestamp update through the legacy alias", async () => {
+  it("rejects invalid cursor and timestamp values", async () => {
+    const userId = crypto.randomUUID();
+    await sql`INSERT INTO entitlements (user_id, product_id, has_access, status)
+      VALUES (${userId}, 'coffee_journal', true, 'active')`;
+
+    const response = await sync("/api/sync", userId, {
+      since: -1,
+      changes: [
+        {
+          entity: "bean",
+          id: crypto.randomUUID(),
+          updatedAt: 0,
+          deleted: false,
+          payload: {},
+        },
+      ],
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("applies and pulls a record, then rejects an equal-timestamp update", async () => {
     const userId = crypto.randomUUID();
     const recordId = crypto.randomUUID();
     await sql`INSERT INTO entitlements (user_id, product_id, has_access, status)
@@ -89,7 +110,7 @@ describe("sync", () => {
       ...initialRecord,
       payload: { name: "Equal-timestamp value" },
     };
-    const rejected = await sync("/sync", userId, {
+    const rejected = await sync("/api/sync", userId, {
       since: applied.cursor,
       changes: [equalTimestamp],
     });

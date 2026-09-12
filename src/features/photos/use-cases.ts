@@ -12,16 +12,14 @@ const publicPhoto = (photo: PhotoMetadata): PhotoMetadata => ({
 });
 
 const bestEffortDelete = (storage: PhotoStorage["Type"], key: string) =>
-  storage
-    .delete(key)
-    .pipe(
-      Effect.catchAll((cause) =>
-        Effect.logWarning("Failed to remove superseded photo object", {
-          key,
-          cause,
-        }),
-      ),
-    );
+  storage.delete(key).pipe(
+    Effect.catchAll((cause) =>
+      Effect.logWarning("Failed to remove superseded photo object", {
+        key,
+        cause,
+      }),
+    ),
+  );
 
 export const listPhotos = (userId: string) =>
   Effect.gen(function* () {
@@ -45,8 +43,9 @@ export const putPhoto = (
     const key = `users/${encodeURIComponent(userId)}/beans/${photo.beanId}/${photo.updatedAt}`;
     yield* storage.put(key, bytes, photo.mimeType);
     const result = yield* photos.apply(userId, photo, key);
-    if (!result.applied) yield* bestEffortDelete(storage, key);
-    else if (result.previousObjectKey && result.previousObjectKey !== key) {
+    if (!result.applied) {
+      yield* bestEffortDelete(storage, key);
+    } else if (result.previousObjectKey && result.previousObjectKey !== key) {
       yield* bestEffortDelete(storage, result.previousObjectKey);
     }
     return {

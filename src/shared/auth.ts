@@ -1,4 +1,4 @@
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Data, Effect, Layer, Schema } from "effect";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { Headers } from "@effect/platform";
 import { AuthConfig } from "./auth-config.js";
@@ -21,9 +21,16 @@ export interface AuthService {
 
 export class Auth extends Context.Tag("Auth")<Auth, AuthService>() {}
 
+const AccessTokenClaims = Schema.Struct({
+  sub: Schema.String,
+  email: Schema.optional(Schema.String),
+});
+
 function bearer(headers: Headers.Headers): string | null {
   const raw = headers["authorization"] ?? headers["Authorization"];
-  if (!raw) return null;
+  if (!raw) {
+    return null;
+  }
   const [scheme, token] = raw.split(" ");
   return scheme?.toLowerCase() === "bearer" && token ? token : null;
 }
@@ -33,25 +40,30 @@ export const AuthLive = Layer.effect(
   Effect.gen(function* () {
     const settings = yield* AuthConfig;
 
-    // Production: verify the Keycloak access token against the realm JWKS.
     const jwks = createRemoteJWKSet(settings.jwksUrl);
     return {
       user: (headers) =>
         Effect.gen(function* () {
           const token = bearer(headers);
-          if (!token)
+          if (!token) {
             return yield* new AuthError({ reason: "missing bearer token" });
+          }
           const { payload } = yield* Effect.tryPromise({
             try: () => jwtVerify(token, jwks, { issuer: settings.issuer }),
             catch: (e) =>
               new AuthError({ reason: `invalid token: ${String(e)}` }),
           });
-          if (typeof payload.sub !== "string") {
-            return yield* new AuthError({ reason: "token has no sub" });
-          }
+          const claims = yield* Schema.decodeUnknown(AccessTokenClaims)(
+            payload,
+          ).pipe(
+            Effect.mapError(
+              (error) =>
+                new AuthError({ reason: `invalid token claims: ${error}` }),
+            ),
+          );
           return {
-            userId: payload.sub,
-            email: typeof payload.email === "string" ? payload.email : null,
+            userId: claims.sub,
+            email: claims.email ?? null,
           };
         }),
     } satisfies AuthService;

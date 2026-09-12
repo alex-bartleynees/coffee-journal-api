@@ -4,8 +4,9 @@ export const PhotoStorageConfig = Effect.gen(function* () {
   const endpoint = yield* Config.string("S3_ENDPOINT").pipe(
     Config.withDefault(""),
   );
-  if (endpoint.trim() === "") return { enabled: false } as const;
-
+  if (endpoint.trim() === "") {
+    return { enabled: false } as const;
+  }
   return {
     enabled: true,
     endpoint: yield* Config.url("S3_ENDPOINT"),

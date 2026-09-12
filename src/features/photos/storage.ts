@@ -79,7 +79,9 @@ export const PhotoStorageLive = Layer.effect(
           const response = await s3.send(
             new GetObjectCommand({ Bucket: settings.bucket, Key: key }),
           );
-          if (!response.Body) throw new Error("S3 object response had no body");
+          if (!response.Body) {
+            throw new Error("S3 object response had no body");
+          }
           return response.Body.transformToByteArray();
         }),
       delete: (key) =>

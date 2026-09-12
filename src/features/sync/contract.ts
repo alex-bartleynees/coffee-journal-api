@@ -11,11 +11,18 @@ export const Entity = Schema.Literal(
 );
 export type Entity = typeof Entity.Type;
 
+const Sequence = Schema.Number.pipe(Schema.int(), Schema.nonNegative());
+const Timestamp = Schema.Number.pipe(Schema.int(), Schema.positive());
+const RecordId = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.maxLength(128),
+);
+
 export const SyncRecord = Schema.Struct({
   entity: Entity,
-  id: Schema.String,
+  id: RecordId,
   /** Client wall-clock epoch milliseconds; strictly newer values win. */
-  updatedAt: Schema.Number,
+  updatedAt: Timestamp,
   deleted: Schema.Boolean,
   /** Full record body, opaque to the server. Null for a pure tombstone. */
   payload: Schema.NullOr(Schema.Unknown),
@@ -24,7 +31,7 @@ export type SyncRecord = typeof SyncRecord.Type;
 
 export const SyncRequest = Schema.Struct({
   /** Highest server sequence already observed by this client. */
-  since: Schema.Number,
+  since: Sequence,
   /** Locally changed upserts and tombstones. */
   changes: Schema.Array(SyncRecord),
 });

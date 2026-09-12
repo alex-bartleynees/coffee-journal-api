@@ -3,8 +3,7 @@ import { Effect } from "effect";
 import { Auth } from "../../shared/auth.js";
 import { EntitlementRepository } from "../entitlements/repository.js";
 import { PhotoRequestError } from "./errors.js";
-
-const validBeanId = (beanId: string) => /^[A-Za-z0-9_-]{1,128}$/.test(beanId);
+import { parseBeanId } from "./validation.js";
 
 /** Authenticate, fail closed on access, and validate the optional route bean id. */
 export const photoRequestContext = Effect.gen(function* () {
@@ -18,12 +17,8 @@ export const photoRequestContext = Effect.gen(function* () {
       code: "subscription_required",
     });
   }
-  const beanId = (yield* HttpRouter.params).beanId;
-  if (beanId != null && !validBeanId(beanId)) {
-    return yield* new PhotoRequestError({
-      status: 400,
-      code: "invalid_bean_id",
-    });
-  }
+  const routeBeanId = (yield* HttpRouter.params).beanId;
+  const beanId =
+    routeBeanId === undefined ? undefined : yield* parseBeanId(routeBeanId);
   return { request, user, beanId };
 });

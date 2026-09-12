@@ -5,6 +5,7 @@ import {
   type OAuthTokenVerifier,
 } from "@modelcontextprotocol/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { Schema } from "effect";
 
 interface TokenVerifierSettings {
   readonly jwksUrl: URL;
@@ -13,10 +14,16 @@ interface TokenVerifierSettings {
   readonly resourceUrl: URL;
 }
 
-const scopesFrom = (claim: unknown): string[] =>
-  typeof claim === "string"
-    ? claim.split(" ").filter((scope) => scope !== "")
-    : [];
+const TokenClaims = Schema.Struct({
+  sub: Schema.String,
+  exp: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  scope: Schema.optional(Schema.String),
+  azp: Schema.optional(Schema.String),
+  client_id: Schema.optional(Schema.String),
+});
+
+const scopesFrom = (claim: string | undefined): string[] =>
+  claim !== undefined ? claim.split(" ").filter((scope) => scope !== "") : [];
 
 export const invalidToken = (): OAuthError =>
   new OAuthError(OAuthErrorCode.InvalidToken, "Invalid access token");
@@ -33,30 +40,22 @@ export const createTokenVerifier = (
           issuer: settings.issuer,
           audience: settings.audience,
         });
-        if (
-          typeof payload.sub !== "string" ||
-          typeof payload.exp !== "number"
-        ) {
-          throw invalidToken();
-        }
+        const claims = await Schema.decodeUnknownPromise(TokenClaims)(payload);
 
-        const clientId =
-          typeof payload.azp === "string"
-            ? payload.azp
-            : typeof payload.client_id === "string"
-              ? payload.client_id
-              : "unknown";
+        const clientId = claims.azp ?? claims.client_id ?? "unknown";
 
         return {
           token,
           clientId,
-          scopes: scopesFrom(payload.scope),
-          expiresAt: payload.exp,
+          scopes: scopesFrom(claims.scope),
+          expiresAt: claims.exp,
           resource: settings.resourceUrl,
-          extra: { userId: payload.sub },
+          extra: { userId: claims.sub },
         } satisfies AuthInfo;
       } catch (error) {
-        if (error instanceof OAuthError) throw error;
+        if (error instanceof OAuthError) {
+          throw error;
+        }
         throw invalidToken();
       }
     },

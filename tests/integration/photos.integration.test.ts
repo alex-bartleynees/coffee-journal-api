@@ -99,6 +99,20 @@ describe("photos", () => {
     });
     expect(invalidBean.status).toBe(400);
     expect(await invalidBean.json()).toEqual({ error: "invalid_bean_id" });
+
+    const invalidTimestamp = await fetch(
+      apiUrl(`/api/photos/${crypto.randomUUID()}`),
+      {
+        method: "PUT",
+        headers: authenticatedHeaders(userId, {
+          "content-type": "image/jpeg",
+          "x-photo-updated-at": "not-a-timestamp",
+        }),
+        body: new Uint8Array([0xff, 0xd8, 0xff]),
+      },
+    );
+    expect(invalidTimestamp.status).toBe(400);
+    expect(await invalidTimestamp.json()).toEqual({ error: "invalid_photo" });
   });
 
   it("keeps the newer server photo when an older upload arrives", async () => {

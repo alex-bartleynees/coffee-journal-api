@@ -43,15 +43,20 @@ export const SyncRepositoryLive = Layer.effect(
 								deleted = excluded.deleted, server_seq = excluded.server_seq
 							WHERE excluded.updated_at > sr.updated_at
 						RETURNING id`;
-              if (rows.length > 0) applied.push(record.id);
-              else rejectedRefs.push({ entity: record.entity, id: record.id });
+              if (rows.length > 0) {
+                applied.push(record.id);
+              } else {
+                rejectedRefs.push({ entity: record.entity, id: record.id });
+              }
             }
             const rejected: SyncRecord[] = [];
             for (const ref of rejectedRefs) {
               const current = await tx<Row[]>`
 						SELECT entity, id, payload, updated_at, deleted, server_seq FROM sync_records
 						WHERE user_id = ${userId} AND entity = ${ref.entity} AND id = ${ref.id}`;
-              if (current[0]) rejected.push(rowToRecord(current[0]));
+              if (current[0]) {
+                rejected.push(rowToRecord(current[0]));
+              }
             }
             const rows = await tx<Row[]>`
 					SELECT entity, id, payload, updated_at, deleted, server_seq FROM sync_records

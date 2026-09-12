@@ -13,8 +13,9 @@ export class SubscriptionRequired extends Data.TaggedError(
 export const authorizeSync = (userId: string) =>
   Effect.gen(function* () {
     const entitlements = yield* EntitlementRepository;
-    if (!(yield* entitlements.hasAccess(userId)))
+    if (!(yield* entitlements.hasAccess(userId))) {
       return yield* new SubscriptionRequired();
+    }
   });
 
 /** Run the transactional LWW cycle and record the successful user sync. */

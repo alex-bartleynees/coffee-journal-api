@@ -1,4 +1,4 @@
-import { Context, Data, Effect, Layer, Redacted } from "effect";
+import { Context, Data, Effect, Layer, Redacted, Schema } from "effect";
 import { KeycloakAdminConfig } from "./keycloak-config.js";
 
 export class KeycloakUnavailableError extends Data.TaggedError(
@@ -24,7 +24,12 @@ export class Keycloak extends Context.Tag("Keycloak")<
   KeycloakService
 >() {}
 
-type TokenResponse = { access_token?: unknown; expires_in?: unknown };
+const TokenResponse = Schema.Struct({
+  access_token: Schema.String,
+  expires_in: Schema.optional(Schema.Number.pipe(Schema.positive())),
+});
+
+const UserSearchResponse = Schema.Array(Schema.Unknown);
 
 const fetchWithTimeout = (url: string, init: RequestInit) =>
   fetch(url, { ...init, signal: AbortSignal.timeout(10_000) });
@@ -51,8 +56,9 @@ export const KeycloakLive = Layer.effect(
 
     const token = Effect.tryPromise({
       try: async () => {
-        if (accessToken !== "" && Date.now() < tokenExpiresAt)
+        if (accessToken !== "" && Date.now() < tokenExpiresAt) {
           return accessToken;
+        }
 
         const response = await fetchWithTimeout(
           `${baseUrl}/realms/${encodeURIComponent(settings.realm)}/protocol/openid-connect/token`,
@@ -66,14 +72,14 @@ export const KeycloakLive = Layer.effect(
             }),
           },
         );
-        if (!response.ok)
+        if (!response.ok) {
           throw new Error(`service token request returned ${response.status}`);
+        }
 
-        const body = (await response.json()) as TokenResponse;
-        if (typeof body.access_token !== "string")
-          throw new Error("service token response was invalid");
-        const expiresIn =
-          typeof body.expires_in === "number" ? body.expires_in : 60;
+        const body = await Schema.decodeUnknownPromise(TokenResponse)(
+          await response.json(),
+        );
+        const expiresIn = body.expires_in ?? 60;
         accessToken = body.access_token;
         tokenExpiresAt = Date.now() + Math.max(1, expiresIn - 30) * 1000;
         return accessToken;
@@ -115,13 +121,17 @@ export const KeycloakLive = Layer.effect(
             reason: `user lookup returned ${search.status}`,
           });
         }
-        const matches = (yield* Effect.tryPromise({
-          try: () => search.json() as Promise<unknown>,
+        const matches = yield* Effect.tryPromise({
+          try: async () =>
+            Schema.decodeUnknownPromise(UserSearchResponse)(
+              await search.json(),
+            ),
           catch: (cause) =>
             new KeycloakUnavailableError({ reason: String(cause) }),
-        })) as unknown;
-        if (Array.isArray(matches) && matches.length > 0)
+        });
+        if (matches.length > 0) {
           return "existing" as const;
+        }
 
         const response = yield* Effect.tryPromise({
           try: () =>
@@ -150,7 +160,9 @@ export const KeycloakLive = Layer.effect(
         // A concurrent request may create the identity after our lookup. Treat
         // that exactly like the normal existing-user path: login still proves
         // knowledge of the existing account's password.
-        if (response.status === 409) return "existing" as const;
+        if (response.status === 409) {
+          return "existing" as const;
+        }
         if (response.status !== 201) {
           return yield* new KeycloakUnavailableError({
             reason: `user creation returned ${response.status}`,

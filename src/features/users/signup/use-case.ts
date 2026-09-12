@@ -1,7 +1,8 @@
 import { Effect } from "effect";
 import { Keycloak } from "../keycloak.js";
 import type { CreateUserRequest, CreateUserResponse } from "./contract.js";
-import { InvalidSignup, SignupRateLimited } from "./errors.js";
+import { SignupRateLimited } from "./errors.js";
+import { parseSignupRequest } from "./validation.js";
 
 const attempts = new Map<string, { count: number; resetsAt: number }>();
 const WINDOW_MS = 15 * 60 * 1000;
@@ -14,7 +15,9 @@ export const claimSignupAttempt = (clientIp: string) =>
       const now = Date.now();
       if (attempts.size > 10_000) {
         for (const [key, value] of attempts) {
-          if (value.resetsAt <= now) attempts.delete(key);
+          if (value.resetsAt <= now) {
+            attempts.delete(key);
+          }
         }
       }
       const current = attempts.get(clientIp);
@@ -25,23 +28,14 @@ export const claimSignupAttempt = (clientIp: string) =>
       current.count += 1;
       return current.count <= ATTEMPT_LIMIT;
     });
-    if (!allowed) return yield* new SignupRateLimited();
+    if (!allowed) {
+      return yield* new SignupRateLimited();
+    }
   });
-
-const normalize = (input: CreateUserRequest) => {
-  const name = input.name.trim();
-  const email = input.email.trim().toLowerCase();
-  if (name.length < 1 || name.length > 100) return null;
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return null;
-  if (input.password.length < 8 || input.password.length > 128) return null;
-  return { name, email, password: input.password };
-};
 
 export const createUser = (input: CreateUserRequest) =>
   Effect.gen(function* () {
-    const user = normalize(input);
-    if (!user) return yield* new InvalidSignup();
+    const user = yield* parseSignupRequest(input);
     const keycloak = yield* Keycloak;
     const outcome = yield* keycloak.createUser(user);
     return {

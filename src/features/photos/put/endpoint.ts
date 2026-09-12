@@ -9,21 +9,20 @@ import { handlePhotoFailures } from "../endpoint-support.js";
 import { PhotoRequestError } from "../errors.js";
 import { photoRequestContext } from "../request-context.js";
 import { putPhoto } from "../use-cases.js";
+import { parsePhotoMimeType, parseUpdatedAt } from "../validation.js";
 
 const MAX_PHOTO_BYTES = FileSystem.MiB(2);
 
 export const putPhotoEndpoint = handlePhotoFailures(
   Effect.gen(function* () {
     const { request, user, beanId } = yield* photoRequestContext;
-    const updatedAt = Number(request.headers["x-photo-updated-at"]);
-    const mimeType =
-      request.headers["content-type"]?.split(";")[0]?.trim() ?? "";
-    if (
-      !beanId ||
-      !Number.isSafeInteger(updatedAt) ||
-      updatedAt <= 0 ||
-      !/^image\/(webp|jpeg|png)$/.test(mimeType)
-    ) {
+    const updatedAt = yield* parseUpdatedAt(
+      request.headers["x-photo-updated-at"],
+    );
+    const mimeType = yield* parsePhotoMimeType(
+      request.headers["content-type"]?.split(";")[0]?.trim() ?? "",
+    );
+    if (!beanId) {
       return yield* new PhotoRequestError({
         status: 400,
         code: "invalid_photo",
