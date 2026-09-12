@@ -1,6 +1,6 @@
 import { Context, Effect } from "effect";
 import type { DbError } from "../../shared/persistence/errors.js";
-import type { EntitlementEvent } from "./contract.js";
+import type { EntitlementEvent } from "./event.js";
 
 export interface EntitlementRepositoryService {
   readonly hasAccess: (userId: string) => Effect.Effect<boolean, DbError>;

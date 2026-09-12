@@ -1,7 +1,8 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
 import { Auth } from "../../shared/auth.js";
-import { SyncRequest, SyncResponse } from "./contract.js";
+import { SyncRequest } from "./request.js";
+import { SyncResponse } from "./response.js";
 import { authorizeSync, synchronize } from "./use-case.js";
 
 const textStatus = (body: string, status: number) =>
@@ -10,12 +11,12 @@ const textStatus = (body: string, status: number) =>
   );
 
 export const syncEndpoint = Effect.gen(function* () {
-  const request = yield* HttpServerRequest.HttpServerRequest;
+  const httpRequest = yield* HttpServerRequest.HttpServerRequest;
   const auth = yield* Auth;
-  const user = yield* auth.user(request.headers);
+  const user = yield* auth.user(httpRequest.headers);
   yield* authorizeSync(user.userId);
-  const body = yield* HttpServerRequest.schemaBodyJson(SyncRequest);
-  const response = yield* synchronize(user, body);
+  const request = yield* HttpServerRequest.schemaBodyJson(SyncRequest);
+  const response = yield* synchronize(user, request);
   return yield* HttpServerResponse.schemaJson(SyncResponse)(response);
 }).pipe(
   Effect.catchTags({

@@ -4,9 +4,11 @@ import { createMcpAuthorization } from "./authorization.js";
 import { createCoffeeJournalMcpHandler } from "./server.js";
 import { createTokenVerifier } from "./token-verifier.js";
 import { McpConfig } from "./config.js";
+import type { McpRequest } from "./request.js";
+import type { McpResponse } from "./response.js";
 
 export interface McpFacadeService {
-  readonly handle: (request: Request) => Promise<Response>;
+  readonly handle: (request: McpRequest) => Promise<McpResponse>;
 }
 
 export class McpFacade extends Context.Tag("McpFacade")<

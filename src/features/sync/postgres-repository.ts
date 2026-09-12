@@ -2,8 +2,9 @@ import { Effect, Layer } from "effect";
 import postgres from "postgres";
 import { DbError } from "../../shared/persistence/errors.js";
 import { Postgres } from "../../shared/persistence/Postgres.js";
-import type { SyncRecord, SyncResponse } from "./contract.js";
+import type { SyncRecord } from "./model.js";
 import { SyncRepository, type SyncRepositoryService } from "./repository.js";
+import type { SyncResponse } from "./response.js";
 
 type Row = {
   entity: SyncRecord["entity"];

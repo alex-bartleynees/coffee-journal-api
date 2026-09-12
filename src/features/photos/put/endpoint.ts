@@ -4,41 +4,17 @@ import {
   HttpServerResponse,
 } from "@effect/platform";
 import { Effect, Option } from "effect";
-import { PhotoMutationResponse } from "../contract.js";
 import { handlePhotoFailures } from "../endpoint-support.js";
-import { PhotoRequestError } from "../errors.js";
-import { photoRequestContext } from "../request-context.js";
 import { putPhoto } from "../use-cases.js";
-import { parsePhotoMimeType, parseUpdatedAt } from "../validation.js";
+import { parsePutPhotoRequest } from "./request.js";
+import { PutPhotoResponse } from "./response.js";
 
 const MAX_PHOTO_BYTES = FileSystem.MiB(2);
 
 export const putPhotoEndpoint = handlePhotoFailures(
   Effect.gen(function* () {
-    const { request, user, beanId } = yield* photoRequestContext;
-    const updatedAt = yield* parseUpdatedAt(
-      request.headers["x-photo-updated-at"],
-    );
-    const mimeType = yield* parsePhotoMimeType(
-      request.headers["content-type"]?.split(";")[0]?.trim() ?? "",
-    );
-    if (!beanId) {
-      return yield* new PhotoRequestError({
-        status: 400,
-        code: "invalid_photo",
-      });
-    }
-    const bytes = new Uint8Array(yield* request.arrayBuffer);
-    if (bytes.byteLength === 0) {
-      return yield* new PhotoRequestError({ status: 400, code: "empty_photo" });
-    }
-    const response = yield* putPhoto(
-      user.userId,
-      { beanId, updatedAt, deleted: false, mimeType },
-      bytes,
-    );
-    return yield* HttpServerResponse.schemaJson(PhotoMutationResponse)(
-      response,
-    );
+    const request = yield* parsePutPhotoRequest;
+    const response = yield* putPhoto(request);
+    return yield* HttpServerResponse.schemaJson(PutPhotoResponse)(response);
   }).pipe(HttpServerRequest.withMaxBodySize(Option.some(MAX_PHOTO_BYTES))),
 );

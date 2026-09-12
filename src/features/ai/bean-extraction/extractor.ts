@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Redacted } from "effect";
 import {
   type BeanExtraction,
   beanExtractionSchema,
-} from "./contract.js";
+} from "./model.js";
 import { BeanExtractionError } from "./errors.js";
 import { BeanExtractionConfig } from "./config.js";
 

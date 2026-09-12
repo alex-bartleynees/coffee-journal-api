@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 import { Keycloak } from "../keycloak.js";
-import type { CreateUserRequest, CreateUserResponse } from "./contract.js";
 import { SignupRateLimited } from "./errors.js";
-import { parseSignupRequest } from "./validation.js";
+import type { CreateUserRequest } from "./request.js";
+import type { CreateUserResponse } from "./response.js";
 
 const attempts = new Map<string, { count: number; resetsAt: number }>();
 const WINDOW_MS = 15 * 60 * 1000;
@@ -33,11 +33,10 @@ export const claimSignupAttempt = (clientIp: string) =>
     }
   });
 
-export const createUser = (input: CreateUserRequest) =>
+export const createUser = (request: CreateUserRequest) =>
   Effect.gen(function* () {
-    const user = yield* parseSignupRequest(input);
     const keycloak = yield* Keycloak;
-    const outcome = yield* keycloak.createUser(user);
+    const outcome = yield* keycloak.createUser(request);
     return {
       created: outcome === "created",
       existing: outcome === "existing",

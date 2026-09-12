@@ -1,14 +1,14 @@
 import { HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
-import { PhotoManifest } from "../contract.js";
 import { handlePhotoFailures } from "../endpoint-support.js";
-import { photoRequestContext } from "../request-context.js";
 import { listPhotos } from "../use-cases.js";
+import { parsePhotoManifestRequest } from "./request.js";
+import { PhotoManifestResponse } from "./response.js";
 
 export const photoManifestEndpoint = handlePhotoFailures(
   Effect.gen(function* () {
-    const { user } = yield* photoRequestContext;
-    const photos = yield* listPhotos(user.userId);
-    return yield* HttpServerResponse.schemaJson(PhotoManifest)({ photos });
+    const request = yield* parsePhotoManifestRequest;
+    const response = yield* listPhotos(request);
+    return yield* HttpServerResponse.schemaJson(PhotoManifestResponse)(response);
   }),
 );

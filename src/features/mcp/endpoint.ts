@@ -1,13 +1,14 @@
-import { HttpServerRequest, HttpServerResponse } from "@effect/platform";
+import { HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
 import { McpFacade } from "./facade.js";
+import { parseMcpRequest } from "./request.js";
+import { encodeMcpResponse } from "./response.js";
 
 export const mcpEndpoint = Effect.gen(function* () {
-  const request = yield* HttpServerRequest.HttpServerRequest;
+  const request = yield* parseMcpRequest;
   const facade = yield* McpFacade;
-  const webRequest = yield* HttpServerRequest.toWeb(request);
-  const response = yield* Effect.tryPromise(() => facade.handle(webRequest));
-  return HttpServerResponse.fromWeb(response);
+  const response = yield* Effect.tryPromise(() => facade.handle(request));
+  return encodeMcpResponse(response);
 }).pipe(
   Effect.catchAll((cause) =>
     Effect.zipRight(

@@ -1,6 +1,7 @@
 import { Context, Effect } from "effect";
 import type { DbError } from "../../shared/persistence/errors.js";
-import type { SyncRequest, SyncResponse } from "./contract.js";
+import type { SyncRequest } from "./request.js";
+import type { SyncResponse } from "./response.js";
 
 export interface SyncRepositoryService {
   readonly run: (

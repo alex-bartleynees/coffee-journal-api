@@ -17,6 +17,7 @@ const PhotoMimeType = Schema.Literal(
   "image/jpeg",
   "image/png",
 );
+export type PhotoMimeType = typeof PhotoMimeType.Type;
 
 const invalid = (code: string) =>
   new PhotoRequestError({ status: 400, code });

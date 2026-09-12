@@ -21,7 +21,7 @@ import {
   Schema,
 } from "effect";
 import { EntitlementConsumerConfig } from "./config.js";
-import { EntitlementEvent, PRODUCT_ID } from "./contract.js";
+import { EntitlementEvent, PRODUCT_ID } from "./event.js";
 import { EntitlementRepository } from "./repository.js";
 
 /**

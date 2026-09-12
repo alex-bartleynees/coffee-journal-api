@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { describe, expect, it } from "vitest";
-import { beanExtractionSchema } from "../../src/features/ai/bean-extraction/contract.js";
+import { beanExtractionSchema } from "../../src/features/ai/bean-extraction/model.js";
 import { BEAN_EXTRACTION_SYSTEM_PROMPT } from "../../src/features/ai/bean-extraction/extractor.js";
 import { apiUrl, authenticatedHeaders } from "./infrastructure/api.js";
 import { integrationContext } from "./infrastructure/global-setup.js";

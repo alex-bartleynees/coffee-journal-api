@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 import { DbError } from "../../shared/persistence/errors.js";
 import { Postgres } from "../../shared/persistence/Postgres.js";
-import type { PhotoMetadata } from "./contract.js";
+import type { PhotoMetadata } from "./model.js";
 import {
   PhotoRepository,
   type PhotoRepositoryService,

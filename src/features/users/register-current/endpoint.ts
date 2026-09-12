@@ -1,6 +1,8 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
-import { RegisterCurrentUserResponse } from "./contract.js";
+import { Auth } from "../../../shared/auth.js";
+import { RegisterCurrentUserRequest } from "./request.js";
+import { RegisterCurrentUserResponse } from "./response.js";
 import { registerCurrentUser } from "./use-case.js";
 
 const textStatus = (body: string, status: number) =>
@@ -9,8 +11,12 @@ const textStatus = (body: string, status: number) =>
   );
 
 export const registerCurrentUserEndpoint = Effect.gen(function* () {
-  const request = yield* HttpServerRequest.HttpServerRequest;
-  const response = yield* registerCurrentUser(request.headers);
+  const httpRequest = yield* HttpServerRequest.HttpServerRequest;
+  const auth = yield* Auth;
+  const request = yield* auth.user(httpRequest.headers);
+  const response = yield* registerCurrentUser(
+    request satisfies RegisterCurrentUserRequest,
+  );
   return yield* HttpServerResponse.schemaJson(RegisterCurrentUserResponse)(
     response,
   );

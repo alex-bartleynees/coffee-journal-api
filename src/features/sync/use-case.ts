@@ -2,8 +2,8 @@ import { Data, Effect } from "effect";
 import type { AuthUser } from "../../shared/auth.js";
 import { EntitlementRepository } from "../entitlements/repository.js";
 import { UserRepository } from "../users/repository.js";
-import type { SyncRequest } from "./contract.js";
 import { SyncRepository } from "./repository.js";
+import type { SyncRequest } from "./request.js";
 
 export class SubscriptionRequired extends Data.TaggedError(
   "SubscriptionRequired",

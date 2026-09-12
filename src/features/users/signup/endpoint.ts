@@ -4,8 +4,9 @@ import {
   HttpServerResponse,
 } from "@effect/platform";
 import { Effect, Option } from "effect";
-import { CreateUserRequest, CreateUserResponse } from "./contract.js";
 import { claimSignupAttempt, createUser } from "./use-case.js";
+import { CreateUserRequest } from "./request.js";
+import { CreateUserResponse } from "./response.js";
 
 const clientIp = (headers: Record<string, string>) =>
   headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
@@ -13,10 +14,10 @@ const clientIp = (headers: Record<string, string>) =>
   "unknown";
 
 export const signupEndpoint = Effect.gen(function* () {
-  const request = yield* HttpServerRequest.HttpServerRequest;
-  yield* claimSignupAttempt(clientIp(request.headers));
-  const input = yield* HttpServerRequest.schemaBodyJson(CreateUserRequest);
-  const response = yield* createUser(input);
+  const httpRequest = yield* HttpServerRequest.HttpServerRequest;
+  yield* claimSignupAttempt(clientIp(httpRequest.headers));
+  const request = yield* HttpServerRequest.schemaBodyJson(CreateUserRequest);
+  const response = yield* createUser(request);
   return yield* HttpServerResponse.schemaJson(CreateUserResponse)(response, {
     status: 201,
   });
@@ -25,8 +26,6 @@ export const signupEndpoint = Effect.gen(function* () {
   Effect.catchTags({
     SignupRateLimited: () =>
       HttpServerResponse.json({ error: "too_many_requests" }, { status: 429 }),
-    InvalidSignup: () =>
-      HttpServerResponse.json({ error: "invalid_request" }, { status: 400 }),
     KeycloakUnavailableError: (cause) =>
       Effect.zipRight(
         Effect.logError("Keycloak signup request failed", {

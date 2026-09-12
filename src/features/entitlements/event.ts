@@ -1,9 +1,7 @@
 import { Schema } from "effect";
 
-/** Our slug in the shared multi-tenant Payments.Gateway. */
 export const PRODUCT_ID = "coffee_journal";
 
-/** Contract published by the shared Payments.Gateway using .NET JSON casing. */
 export const EntitlementEvent = Schema.Struct({
   MessageId: Schema.String,
   ProductId: Schema.String,

@@ -1,6 +1,6 @@
 import { Context, Effect } from "effect";
 import type { DbError } from "../../shared/persistence/errors.js";
-import type { PhotoMetadata } from "./contract.js";
+import type { PhotoMetadata } from "./model.js";
 
 export type StoredPhoto = PhotoMetadata & { readonly objectKey: string | null };
 

@@ -61,6 +61,9 @@ index.ts → app/layers.ts → app/router.ts + production adapters
 Rules for new work:
 
 - Add an operation inside the feature that owns it; expose it through that feature's router.
+- Give every application endpoint an explicit request representation and response representation.
+  For non-JSON requests, decode route parameters, headers, identity, and body into one
+  operation-owned request value before invoking the use case.
 - Keep transport parsing and response encoding in endpoints, orchestration in use cases,
   and SQL/external SDK calls in adapters.
 - Prefer capability-specific interfaces such as `SyncRepository`; do not reintroduce
@@ -72,9 +75,10 @@ Rules for new work:
 - `GET /health` → `ok`
 - `POST /api/users` — public Keycloak signup; rate-limited and limited to 4 KiB
 - `POST /api/users/me` (auth required) — idempotently register the current user
-- `POST /sync` and `POST /api/sync` (auth + entitlement required) — push local changes + pull server changes in one
+- `POST /api/sync` (auth + entitlement required) — push local changes + pull server changes in one
   round trip. Request `{ since, changes[] }`, response
-  `{ applied[], rejected[], changes[], cursor }`. See `src/features/sync/contract.ts`.
+  `{ applied[], rejected[], changes[], cursor }`. See `src/features/sync/request.ts`
+  and `src/features/sync/response.ts`.
 - `GET /api/photos` (auth + entitlement required) — photo metadata manifest
 - `PUT /api/photos/:beanId` (auth + entitlement required) — upload a JPEG, PNG,
   or WebP body up to 2 MiB; requires `x-photo-updated-at`
