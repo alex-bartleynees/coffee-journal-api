@@ -6,7 +6,7 @@ import { AppConfig } from "../config.js";
 import { BeanExtractorLive } from "../features/ai/bean-extraction/extractor.js";
 import { EntitlementConsumerLive } from "../features/entitlements/consumer.js";
 import { EntitlementRepositoryLive } from "../features/entitlements/postgres-repository.js";
-import { McpGatewayLive } from "../features/mcp/gateway.js";
+import { McpFacadeLive } from "../features/mcp/facade.js";
 import { PhotoRepositoryLive } from "../features/photos/postgres-repository.js";
 import { PhotoStorageLive } from "../features/photos/storage.js";
 import { SyncRepositoryLive } from "../features/sync/postgres-repository.js";
@@ -46,7 +46,7 @@ export const AppLive = router.pipe(
   HttpServer.withLogAddress,
   Layer.merge(EntitlementConsumerLive),
   Layer.provide(KeycloakLive),
-  Layer.provide(McpGatewayLive),
+  Layer.provide(McpFacadeLive),
   Layer.provide(PersistenceLive),
   Layer.provide(AuthLive),
   Layer.provide(PhotoStorageLive),
