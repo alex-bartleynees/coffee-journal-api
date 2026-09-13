@@ -134,6 +134,7 @@ const toBrewDetail = (row: BrewDetailRow): BrewDetail | null => {
 
   return {
     ...details,
+    rating: details.rating ?? null,
     methodId,
     grinderId,
     ...(machineId === undefined ? {} : { machineId }),
@@ -151,7 +152,10 @@ const toBrewSummary = (row: BrewRow): BrewSummary | null => {
     return null;
   }
 
-  return decoded.right;
+  return {
+    ...decoded.right,
+    rating: decoded.right.rating ?? null,
+  };
 };
 
 const rowCursor = (row: BrewRow): BrewCursor => ({

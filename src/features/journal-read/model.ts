@@ -14,7 +14,7 @@ export const StoredBrew = Schema.Struct({
   method: Schema.String,
   date: CalendarDate,
   time: Schema.String,
-  rating: Schema.optionalWith(Rating, { default: () => null }),
+  rating: Schema.optional(Rating),
   recipeNotes: Schema.optional(Schema.String),
   aroma: Schema.optional(Schema.String),
   flavor: Schema.optional(Schema.String),
@@ -24,7 +24,9 @@ export const StoredBrew = Schema.Struct({
   favorite: Schema.optional(Schema.Boolean),
 });
 export type StoredBrew = typeof StoredBrew.Type;
-export type BrewSummary = StoredBrew;
+export type BrewSummary = Omit<StoredBrew, "rating"> & {
+  readonly rating: number | null;
+};
 
 export const StoredBrewDetail = Schema.Struct({
   ...StoredBrew.fields,
