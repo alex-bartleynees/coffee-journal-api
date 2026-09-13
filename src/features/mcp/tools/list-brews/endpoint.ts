@@ -31,7 +31,17 @@ export const registerListBrewsEndpoint = (
     },
     async (request) => {
       const response = await Effect.runPromise(
-        listBrews(dependencies.listBrews, userId, request),
+        listBrews(dependencies.listBrews, userId, {
+          limit: request.limit,
+          ...(request.cursor == null ? {} : { cursor: request.cursor }),
+          ...(request.from == null ? {} : { from: request.from }),
+          ...(request.to == null ? {} : { to: request.to }),
+          ...(request.method == null ? {} : { method: request.method }),
+          ...(request.minimumRating == null
+            ? {}
+            : { minimumRating: request.minimumRating }),
+          ...(request.beanId == null ? {} : { beanId: request.beanId }),
+        }),
       );
 
       return {
@@ -41,4 +51,3 @@ export const registerListBrewsEndpoint = (
     },
   );
 };
-

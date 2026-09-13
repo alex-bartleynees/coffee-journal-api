@@ -31,7 +31,12 @@ export const registerListBeansEndpoint = (
     },
     async (request) => {
       const response = await Effect.runPromise(
-        listBeans(dependencies.listBeans, userId, request),
+        listBeans(dependencies.listBeans, userId, {
+          limit: request.limit,
+          status: request.status,
+          ...(request.cursor == null ? {} : { cursor: request.cursor }),
+          ...(request.roaster == null ? {} : { roaster: request.roaster }),
+        }),
       );
       return {
         content: [{ type: "text", text: JSON.stringify(response) }],
@@ -40,4 +45,3 @@ export const registerListBeansEndpoint = (
     },
   );
 };
-

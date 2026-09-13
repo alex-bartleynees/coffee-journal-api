@@ -1,13 +1,13 @@
 import { z } from "zod";
+import { OptionalCursor, optionalString } from "../request-schema.js";
 
 export const ListBeansRequest = z
   .object({
     limit: z.number().int().min(1).max(50).default(20),
-    cursor: z.string().min(1).max(512).optional(),
+    cursor: OptionalCursor,
     status: z.enum(["active", "finished", "all"]).default("active"),
-    roaster: z.string().trim().min(1).max(100).optional(),
+    roaster: optionalString(100),
   })
   .strict();
 
 export type ListBeansRequest = z.infer<typeof ListBeansRequest>;
-

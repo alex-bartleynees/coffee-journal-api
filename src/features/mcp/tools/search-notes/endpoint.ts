@@ -32,8 +32,10 @@ export const registerSearchNotesEndpoint = (
     async (request) => {
       const response = await Effect.runPromise(
         searchNotes(dependencies.searchNotes, userId, {
-          ...request,
+          query: request.query,
+          limit: request.limit,
           entities: request.entities ?? AllNoteEntities,
+          ...(request.cursor == null ? {} : { cursor: request.cursor }),
         }),
       );
       return {
@@ -43,4 +45,3 @@ export const registerSearchNotesEndpoint = (
     },
   );
 };
-

@@ -31,8 +31,8 @@ export const registerJournalSummaryEndpoint = (
     async (request) => {
       const summary = await Effect.runPromise(
         dependencies.getSummary(userId, {
-          ...(request.from === undefined ? {} : { from: request.from }),
-          ...(request.to === undefined ? {} : { to: request.to }),
+          ...(request.from == null ? {} : { from: request.from }),
+          ...(request.to == null ? {} : { to: request.to }),
         }),
       );
       const response = {
@@ -49,4 +49,3 @@ export const registerJournalSummaryEndpoint = (
     },
   );
 };
-

@@ -851,4 +851,54 @@ describe("MCP", () => {
       { entity: "recipe", id: recipeId },
     ]);
   });
+
+  it("accepts null and blank values for optional tool filters", async () => {
+    const userId = crypto.randomUUID();
+    await grantMcpAccess(userId);
+
+    const callTool = (name: string, arguments_: Record<string, unknown>) =>
+      callMcp(userId, {
+        jsonrpc: "2.0",
+        id: crypto.randomUUID(),
+        method: "tools/call",
+        params: { name, arguments: arguments_ },
+      });
+
+    const beans = (await callTool("coffee_journal_list_beans", {
+      cursor: "",
+      roaster: null,
+      status: "all",
+    })) as { result: { structuredContent: unknown; isError?: boolean } };
+    expect(beans.result.isError).not.toBe(true);
+    expect(beans.result.structuredContent).toEqual({ beans: [] });
+
+    const brews = (await callTool("coffee_journal_list_brews", {
+      cursor: null,
+      from: "",
+      to: null,
+      method: "",
+      minimumRating: null,
+      beanId: "",
+    })) as { result: { structuredContent: unknown; isError?: boolean } };
+    expect(brews.result.isError).not.toBe(true);
+    expect(brews.result.structuredContent).toEqual({ brews: [] });
+
+    const notes = (await callTool("coffee_journal_search_notes", {
+      query: "caramel",
+      entities: [],
+      cursor: "",
+    })) as { result: { structuredContent: unknown; isError?: boolean } };
+    expect(notes.result.isError).not.toBe(true);
+    expect(notes.result.structuredContent).toEqual({ results: [] });
+
+    const summary = (await callTool("coffee_journal_summary", {
+      from: null,
+      to: "",
+    })) as { result: { structuredContent: unknown; isError?: boolean } };
+    expect(summary.result.isError).not.toBe(true);
+    expect(summary.result.structuredContent).toMatchObject({
+      period: { from: null, to: null },
+      totalBrews: 0,
+    });
+  });
 });
