@@ -19,7 +19,7 @@ export const registerListBrewsEndpoint = (
     {
       title: "List coffee journal brews",
       description:
-        "Lists the authenticated user's coffee brews and tasting notes, newest first. Supports date, method, and minimum-rating filters.",
+        "Lists the authenticated user's coffee brews and tasting notes, newest first. Supports date, method, and minimum-rating filters. Method is a brewing method such as espresso or v60, not a drink such as Flat White; omit it or use all for every method.",
       inputSchema: ListBrewsRequest,
       outputSchema: ListBrewsResponse,
       annotations: {
@@ -30,13 +30,17 @@ export const registerListBrewsEndpoint = (
       },
     },
     async (request) => {
+      const method =
+        request.method?.toLocaleLowerCase() === "all"
+          ? undefined
+          : request.method;
       const response = await Effect.runPromise(
         listBrews(dependencies.listBrews, userId, {
           limit: request.limit ?? 20,
           ...(request.cursor == null ? {} : { cursor: request.cursor }),
           ...(request.from == null ? {} : { from: request.from }),
           ...(request.to == null ? {} : { to: request.to }),
-          ...(request.method == null ? {} : { method: request.method }),
+          ...(method == null ? {} : { method }),
           ...(request.minimumRating == null
             ? {}
             : { minimumRating: request.minimumRating }),

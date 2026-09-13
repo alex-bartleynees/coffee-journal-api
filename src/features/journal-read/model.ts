@@ -14,7 +14,7 @@ export const StoredBrew = Schema.Struct({
   method: Schema.String,
   date: CalendarDate,
   time: Schema.String,
-  rating: Rating,
+  rating: Schema.optionalWith(Rating, { default: () => null }),
   recipeNotes: Schema.optional(Schema.String),
   aroma: Schema.optional(Schema.String),
   flavor: Schema.optional(Schema.String),

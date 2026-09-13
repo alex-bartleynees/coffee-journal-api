@@ -146,6 +146,7 @@ describe("MCP", () => {
     const userId = crypto.randomUUID();
     const otherUserId = crypto.randomUUID();
     const ownBrewId = crypto.randomUUID();
+    const quickBrewId = crypto.randomUUID();
     const deletedBrewId = crypto.randomUUID();
     const otherBrewId = crypto.randomUUID();
     await grantMcpAccess(userId);
@@ -164,12 +165,22 @@ describe("MCP", () => {
       };
       const deletedBrew = { ...ownBrew, id: deletedBrewId };
       const otherBrew = { ...ownBrew, id: otherBrewId };
+      const quickBrew = {
+        id: quickBrewId,
+        beanId: crypto.randomUUID(),
+        method: "espresso",
+        date: "2026-09-14",
+        time: "08:00",
+        doseIn: 19,
+        espressoDrink: "Flat White",
+      };
 
       await sql`
         INSERT INTO sync_records
           (user_id, entity, id, payload, updated_at, deleted, server_seq)
         VALUES
           (${userId}, 'brew', ${ownBrewId}, ${sql.json(ownBrew)}, 1000, false, nextval('sync_seq')),
+          (${userId}, 'brew', ${quickBrewId}, ${sql.json(quickBrew)}, 1003, false, nextval('sync_seq')),
           (${userId}, 'brew', ${deletedBrewId}, ${sql.json(deletedBrew)}, 1001, true, nextval('sync_seq')),
           (${otherUserId}, 'brew', ${otherBrewId}, ${sql.json(otherBrew)}, 1002, false, nextval('sync_seq'))`;
     } finally {
@@ -203,6 +214,11 @@ describe("MCP", () => {
     expect(callResponse.result.structuredContent).toEqual({
       brews: [
         expect.objectContaining({
+          id: quickBrewId,
+          method: "espresso",
+          rating: null,
+        }),
+        expect.objectContaining({
           id: ownBrewId,
           method: "V60",
           rating: 8.5,
@@ -211,6 +227,23 @@ describe("MCP", () => {
         }),
       ],
     });
+
+    const allMethodsResponse = (await callMcp(userId, {
+      jsonrpc: "2.0",
+      id: "list-all-methods",
+      method: "tools/call",
+      params: {
+        name: "coffee_journal_list_brews",
+        arguments: {
+          from: "2026-09-14",
+          to: "2026-09-14",
+          method: "all",
+        },
+      },
+    })) as { result: { structuredContent: { brews: Array<{ id: string }> } } };
+    expect(allMethodsResponse.result.structuredContent.brews).toMatchObject([
+      { id: quickBrewId },
+    ]);
   });
 
   it("paginates brews with an opaque stable cursor", async () => {
