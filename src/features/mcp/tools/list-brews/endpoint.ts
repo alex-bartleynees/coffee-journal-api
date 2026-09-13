@@ -32,7 +32,7 @@ export const registerListBrewsEndpoint = (
     async (request) => {
       const response = await Effect.runPromise(
         listBrews(dependencies.listBrews, userId, {
-          limit: request.limit,
+          limit: request.limit ?? 20,
           ...(request.cursor == null ? {} : { cursor: request.cursor }),
           ...(request.from == null ? {} : { from: request.from }),
           ...(request.to == null ? {} : { to: request.to }),

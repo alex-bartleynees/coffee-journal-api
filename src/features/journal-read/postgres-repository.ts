@@ -14,7 +14,7 @@ import {
   type BrewDetail,
   type BrewSummary,
   type BeanCursor,
-  type StoredBean as StoredBeanType,
+  type BeanInventory,
   type JournalSummary,
   type NoteSearchCursor,
   type NoteSearchResult,
@@ -50,6 +50,9 @@ type BeanRow = {
   id: string;
   payload: unknown;
   bean_name: string;
+  brew_count: number;
+  tracked_brew_count: number;
+  consumed_weight: number;
 };
 
 type SummaryRow = Omit<JournalSummary, "topMethods" | "topBeans"> & {
@@ -91,11 +94,19 @@ const decodeMachine = Schema.decodeUnknownEither(StoredMachineSummary);
 const decodeRecipe = Schema.decodeUnknownEither(StoredRecipeSummary);
 const decodeStoredBean = Schema.decodeUnknownEither(StoredBean);
 
-const toBean = (row: BeanRow): StoredBeanType | null => {
+const toBean = (row: BeanRow): BeanInventory | null => {
   const decoded = decodeStoredBean(row.payload);
-  return decoded._tag === "Right" && decoded.right.id === row.id
-    ? decoded.right
-    : null;
+  if (decoded._tag === "Left" || decoded.right.id !== row.id) return null;
+
+  return {
+    ...decoded.right,
+    brews: row.brew_count,
+    consumedWeight: row.consumed_weight,
+    remainingWeight:
+      row.tracked_brew_count === row.brew_count
+        ? Math.max(0, decoded.right.bagWeight - row.consumed_weight)
+        : null,
+  };
 };
 
 const beanRowCursor = (row: BeanRow): BeanCursor => ({
@@ -287,42 +298,65 @@ export const JournalReadRepositoryLive = Layer.effect(
           try: async () => {
             const cursor = query.cursor;
             const rows = await sql<BeanRow[]>`
-              SELECT id, payload, lower(payload->>'name') AS bean_name
-              FROM sync_records
-              WHERE user_id = ${userId}
-                AND entity = 'bean'
-                AND deleted = false
-                AND payload IS NOT NULL
-                AND jsonb_typeof(payload->'name') = 'string'
+              SELECT
+                bean.id,
+                bean.payload,
+                lower(bean.payload->>'name') AS bean_name,
+                count(brew.id)::int AS brew_count,
+                count(brew.id) FILTER (
+                  WHERE jsonb_typeof(brew.payload->'doseIn') = 'number'
+                    AND (brew.payload->>'doseIn')::double precision >= 0
+                )::int AS tracked_brew_count,
+                COALESCE(sum(
+                  CASE
+                    WHEN jsonb_typeof(brew.payload->'doseIn') = 'number'
+                      AND (brew.payload->>'doseIn')::double precision >= 0
+                    THEN (brew.payload->>'doseIn')::double precision
+                    ELSE 0
+                  END
+                ), 0)::double precision AS consumed_weight
+              FROM sync_records AS bean
+              LEFT JOIN sync_records AS brew
+                ON brew.user_id = bean.user_id
+                AND brew.entity = 'brew'
+                AND brew.deleted = false
+                AND brew.payload IS NOT NULL
+                AND brew.payload->>'beanId' = bean.id
+              WHERE bean.user_id = ${userId}
+                AND bean.entity = 'bean'
+                AND bean.deleted = false
+                AND bean.payload IS NOT NULL
+                AND jsonb_typeof(bean.payload->'name') = 'string'
                 ${
                   query.status === "all"
                     ? sql``
                     : query.status === "finished"
                       ? sql`AND CASE
-                          WHEN jsonb_typeof(payload->'finished') = 'boolean'
-                          THEN (payload->>'finished')::boolean
+                          WHEN jsonb_typeof(bean.payload->'finished') = 'boolean'
+                          THEN (bean.payload->>'finished')::boolean
                           ELSE false
                         END = true`
                       : sql`AND CASE
-                          WHEN jsonb_typeof(payload->'finished') = 'boolean'
-                          THEN (payload->>'finished')::boolean
+                          WHEN jsonb_typeof(bean.payload->'finished') = 'boolean'
+                          THEN (bean.payload->>'finished')::boolean
                           ELSE false
                         END = false`
                 }
                 ${
                   query.roaster == null
                     ? sql``
-                    : sql`AND lower(payload->>'roaster') = lower(${query.roaster})`
+                    : sql`AND lower(bean.payload->>'roaster') = lower(${query.roaster})`
                 }
                 ${
                   cursor == null
                     ? sql``
                     : sql`AND (
-                        lower(payload->>'name') > ${cursor.name}
-                        OR (lower(payload->>'name') = ${cursor.name} AND id > ${cursor.id})
+                        lower(bean.payload->>'name') > ${cursor.name}
+                        OR (lower(bean.payload->>'name') = ${cursor.name} AND bean.id > ${cursor.id})
                       )`
                 }
-              ORDER BY lower(payload->>'name') ASC, id ASC
+              GROUP BY bean.id, bean.payload
+              ORDER BY lower(bean.payload->>'name') ASC, bean.id ASC
               LIMIT ${query.limit + 1}`;
 
             const pageRows = rows.slice(0, query.limit);

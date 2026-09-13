@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { OptionalCursor, optionalArray } from "../request-schema.js";
+import {
+  OptionalCursor,
+  optionalArray,
+  optionalString,
+} from "../request-schema.js";
 
 const Entity = z.enum([
   "brew",
@@ -12,9 +16,9 @@ const Entity = z.enum([
 
 export const SearchNotesRequest = z
   .object({
-    query: z.string().trim().min(2).max(100),
+    query: optionalString(100),
     entities: optionalArray(Entity, 6),
-    limit: z.number().int().min(1).max(25).default(10),
+    limit: z.number().int().min(1).max(25).optional().nullable(),
     cursor: OptionalCursor,
   })
   .strict();

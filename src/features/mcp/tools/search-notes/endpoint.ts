@@ -19,7 +19,7 @@ export const registerSearchNotesEndpoint = (
     {
       title: "Search coffee journal notes",
       description:
-        "Searches the authenticated user's brew tasting notes and notes attached to beans, recipes, grinders, machines, and methods.",
+        "Lists or searches the authenticated user's brew tasting notes and notes attached to beans, recipes, grinders, machines, and methods. Omit query to list all notes.",
       inputSchema: SearchNotesRequest,
       outputSchema: SearchNotesResponse,
       annotations: {
@@ -32,8 +32,8 @@ export const registerSearchNotesEndpoint = (
     async (request) => {
       const response = await Effect.runPromise(
         searchNotes(dependencies.searchNotes, userId, {
-          query: request.query,
-          limit: request.limit,
+          query: request.query ?? "",
+          limit: request.limit ?? 10,
           entities: request.entities ?? AllNoteEntities,
           ...(request.cursor == null ? {} : { cursor: request.cursor }),
         }),

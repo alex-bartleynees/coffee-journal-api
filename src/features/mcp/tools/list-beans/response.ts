@@ -15,6 +15,14 @@ const Bean = z.object({
   pricePerKg: z.number(),
   bagWeight: z.number(),
   brews: z.number().int().nonnegative(),
+  consumedWeight: z.number().nonnegative().describe("Recorded coffee consumed in grams"),
+  remainingWeight: z
+    .number()
+    .nonnegative()
+    .nullable()
+    .describe(
+      "Estimated grams remaining, or null when a linked brew has no recorded dose",
+    ),
   finished: z.boolean().optional(),
 });
 
@@ -24,4 +32,3 @@ export const ListBeansResponse = z.object({
 });
 
 export type ListBeansResponse = z.infer<typeof ListBeansResponse>;
-

@@ -30,12 +30,16 @@ export const registerListBeansEndpoint = (
       },
     },
     async (request) => {
+      const roaster =
+        request.roaster?.toLocaleLowerCase() === "all"
+          ? undefined
+          : request.roaster;
       const response = await Effect.runPromise(
         listBeans(dependencies.listBeans, userId, {
-          limit: request.limit,
-          status: request.status,
+          limit: request.limit ?? 20,
+          status: request.status ?? "active",
           ...(request.cursor == null ? {} : { cursor: request.cursor }),
-          ...(request.roaster == null ? {} : { roaster: request.roaster }),
+          ...(roaster == null ? {} : { roaster }),
         }),
       );
       return {

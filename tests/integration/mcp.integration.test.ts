@@ -537,6 +537,14 @@ describe("MCP", () => {
           (user_id, entity, id, payload, updated_at, deleted, server_seq)
         VALUES
           (${otherUserId}, 'bean', ${foreign.id}, ${sql.json(foreign)}, 6000, false, nextval('sync_seq'))`;
+      const firstBrewId = crypto.randomUUID();
+      const secondBrewId = crypto.randomUUID();
+      await sql`
+        INSERT INTO sync_records
+          (user_id, entity, id, payload, updated_at, deleted, server_seq)
+        VALUES
+          (${userId}, 'brew', ${firstBrewId}, ${sql.json({ id: firstBrewId, beanId: alpha.id, doseIn: 18 })}, 6001, false, nextval('sync_seq')),
+          (${userId}, 'brew', ${secondBrewId}, ${sql.json({ id: secondBrewId, beanId: alpha.id, doseIn: 20 })}, 6002, false, nextval('sync_seq'))`;
     } finally {
       await sql.end();
     }
@@ -566,7 +574,13 @@ describe("MCP", () => {
       roaster: "Vanguard",
     });
     expect(firstPage.result.structuredContent.beans).toMatchObject([
-      { id: alpha.id, name: "Alpha" },
+      {
+        id: alpha.id,
+        name: "Alpha",
+        brews: 2,
+        consumedWeight: 38,
+        remainingWeight: 212,
+      },
     ]);
     expect(firstPage.result.structuredContent.nextCursor).toEqual(
       expect.any(String),
@@ -587,6 +601,11 @@ describe("MCP", () => {
     expect(
       finishedPage.result.structuredContent.beans.map(({ id }) => id),
     ).toEqual([finished.id]);
+
+    const allRoasters = await list({ status: "active", roaster: "all" });
+    expect(
+      allRoasters.result.structuredContent.beans.map(({ id }) => id),
+    ).toEqual([alpha.id, beta.id]);
   });
 
   it("filters brews by bean ID", async () => {
@@ -850,6 +869,9 @@ describe("MCP", () => {
     expect(recipesOnly.result.structuredContent.results).toMatchObject([
       { entity: "recipe", id: recipeId },
     ]);
+
+    const allNotes = await search({});
+    expect(allNotes.result.structuredContent.results).toHaveLength(3);
   });
 
   it("accepts null and blank values for optional tool filters", async () => {

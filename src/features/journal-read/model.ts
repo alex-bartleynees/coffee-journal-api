@@ -73,6 +73,15 @@ export const StoredBean = Schema.Struct({
 });
 export type StoredBean = typeof StoredBean.Type;
 
+export type BeanInventory = Omit<StoredBean, "brews"> & {
+  /** Authoritative count of non-deleted brews linked to this bean. */
+  readonly brews: number;
+  /** Total recorded dose, in grams. */
+  readonly consumedWeight: number;
+  /** Grams remaining, or null when one or more linked brews has no valid dose. */
+  readonly remainingWeight: number | null;
+};
+
 export const StoredMethodSummary = Schema.Struct({
   id: Schema.String,
   label: Schema.String,
@@ -135,7 +144,7 @@ export interface BeanCursor {
 }
 
 export interface BeanPage {
-  readonly beans: readonly StoredBean[];
+  readonly beans: readonly BeanInventory[];
   readonly nextCursor: BeanCursor | null;
 }
 

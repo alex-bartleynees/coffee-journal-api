@@ -8,7 +8,7 @@ import {
 
 export const ListBrewsRequest = z
   .object({
-    limit: z.number().int().min(1).max(50).default(20),
+    limit: z.number().int().min(1).max(50).optional().nullable(),
     cursor: OptionalCursor,
     from: OptionalCalendarDate,
     to: OptionalCalendarDate,
