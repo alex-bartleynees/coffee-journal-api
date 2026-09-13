@@ -1,4 +1,5 @@
 import { Context, Effect, Layer } from "effect";
+import { JournalReadRepository } from "../journal-read/repository.js";
 import { McpAccessGrantRepository } from "./access-grants/repository.js";
 import { createMcpAuthorization } from "./authorization.js";
 import { createCoffeeJournalMcpHandler } from "./server.js";
@@ -27,6 +28,7 @@ export const McpFacadeLive = Layer.scoped(
     if (!settings.enabled) return disabledFacade;
 
     const accessGrants = yield* McpAccessGrantRepository;
+    const journalRead = yield* JournalReadRepository;
     const verifier = createTokenVerifier({
       jwksUrl: settings.jwksUrl,
       issuer: settings.issuer,
@@ -39,14 +41,23 @@ export const McpFacadeLive = Layer.scoped(
       resourceUrl: settings.resourceUrl,
       hasAccess: accessGrants.hasAccess,
     });
-    const handler = createCoffeeJournalMcpHandler();
+    const handler = createCoffeeJournalMcpHandler({
+      listBrews: journalRead.listBrews,
+      getBrew: journalRead.getBrew,
+      listBeans: journalRead.listBeans,
+      getSummary: journalRead.getSummary,
+      searchNotes: journalRead.searchNotes,
+    });
 
     yield* Effect.addFinalizer(() => Effect.promise(() => handler.close()));
 
     return {
       handle: async (request) => {
         const auth = await authorize(request);
-        if (auth instanceof Response) return auth;
+        if (auth instanceof Response) {
+          // The request was unauthorized or invalid, so we return the response directly.
+          return auth;
+        }
         return handler.fetch(request, { authInfo: auth });
       },
     } satisfies McpFacadeService;

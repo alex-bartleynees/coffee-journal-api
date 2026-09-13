@@ -6,6 +6,7 @@ import { AppConfig } from "../config.js";
 import { BeanExtractorLive } from "../features/ai/bean-extraction/extractor.js";
 import { EntitlementConsumerLive } from "../features/entitlements/consumer.js";
 import { EntitlementRepositoryLive } from "../features/entitlements/postgres-repository.js";
+import { JournalReadRepositoryLive } from "../features/journal-read/postgres-repository.js";
 import { McpFacadeLive } from "../features/mcp/facade.js";
 import { PhotoRepositoryLive } from "../features/photos/postgres-repository.js";
 import { PhotoStorageLive } from "../features/photos/storage.js";
@@ -24,6 +25,7 @@ const ServerLive = NodeHttpServer.layerConfig(() => createServer(), {
 
 const PersistenceLive = Layer.mergeAll(
   EntitlementRepositoryLive,
+  JournalReadRepositoryLive,
   PhotoRepositoryLive,
   SyncRepositoryLive,
   UserRepositoryLive,

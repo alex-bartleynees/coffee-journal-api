@@ -24,7 +24,9 @@ export const McpConfig = Effect.gen(function* () {
   const enabled = yield* Config.boolean("MCP_ENABLED").pipe(
     Config.withDefault(false),
   );
-  if (!enabled) return { enabled: false } as const;
+  if (!enabled) {
+    return { enabled: false } as const;
+  }
 
   return {
     enabled: true,

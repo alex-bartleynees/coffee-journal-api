@@ -96,16 +96,36 @@ const stopServer = (server: Server) =>
     server.close((error) => (error ? reject(error) : resolve())),
   );
 
-const accessToken = (userId: string): string => {
-  if (jwtIssuer == null) throw new Error("Integration JWKS server has not started");
+const accessToken = (
+  userId: string,
+  options: {
+    audience?: string;
+    scope?: string;
+    clientId?: string;
+  } = {},
+): string => {
+  if (jwtIssuer == null) {
+    throw new Error("Integration JWKS server has not started");
+  }
   const encode = (value: unknown) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
   const now = Math.floor(Date.now() / 1_000);
   const header = encode({ alg: "RS256", kid: JWT_KEY_ID, typ: "JWT" });
-  const payload = encode({ sub: userId, iss: jwtIssuer, iat: now, exp: now + 3600 });
+  const payload = encode({
+    sub: userId,
+    iss: jwtIssuer,
+    aud: options.audience,
+    scope: options.scope,
+    azp: options.clientId,
+    iat: now,
+    exp: now + 3600,
+  });
   const unsignedToken = `${header}.${payload}`;
-  const signature = sign("RSA-SHA256", Buffer.from(unsignedToken), jwtPrivateKey)
-    .toString("base64url");
+  const signature = sign(
+    "RSA-SHA256",
+    Buffer.from(unsignedToken),
+    jwtPrivateKey,
+  ).toString("base64url");
   return `${unsignedToken}.${signature}`;
 };
 
@@ -156,7 +176,10 @@ const setup = async () => {
       DATABASE_URL: database.getConnectionUri(),
       KEYCLOAK_JWKS_URL: `${jwtIssuer}/jwks`,
       KEYCLOAK_ISSUER: jwtIssuer,
-      MCP_ENABLED: "false",
+      MCP_ENABLED: "true",
+      MCP_RESOURCE_URL: `${apiBaseUrl}/mcp`,
+      MCP_AUDIENCE: "coffee-journal-mcp",
+      MCP_REQUIRED_SCOPE: "coffee-journal:read",
       RABBITMQ_URL: rabbitMq.getAmqpUrl(),
       S3_ENDPOINT: objectStorage.getConnectionUrl(),
       S3_REGION: "us-east-1",
@@ -201,13 +224,19 @@ export const registerIntegrationInfrastructure = () => {
 };
 
 export const integrationContext = () => {
-  if (apiBaseUrl == null || database == null || rabbitMq == null) {
+  if (
+    apiBaseUrl == null ||
+    database == null ||
+    rabbitMq == null ||
+    jwtIssuer == null
+  ) {
     throw new Error("Integration infrastructure has not started");
   }
   return {
     apiBaseUrl,
     databaseUrl: database.getConnectionUri(),
     rabbitMqUrl: rabbitMq.getAmqpUrl(),
+    jwtIssuer,
     accessToken,
   };
 };
