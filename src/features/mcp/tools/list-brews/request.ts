@@ -12,9 +12,13 @@ export const ListBrewsRequest = z
     cursor: OptionalCursor,
     from: OptionalCalendarDate,
     to: OptionalCalendarDate,
-    method: optionalString(100),
+    method: optionalString(100).describe(
+      "Brewing method ID, such as espresso or v60; omit, null, or all for every method",
+    ),
     minimumRating: optionalNumber(0, 10),
-    beanId: optionalString(128),
+    beanId: optionalString(128).describe(
+      "Exact bean ID; omit, null, or all for every bean",
+    ),
   })
   .strict()
   .refine(

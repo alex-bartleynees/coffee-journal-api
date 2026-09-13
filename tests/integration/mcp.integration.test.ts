@@ -238,6 +238,7 @@ describe("MCP", () => {
           from: "2026-09-14",
           to: "2026-09-14",
           method: "all",
+          beanId: "all",
         },
       },
     })) as { result: { structuredContent: { brews: Array<{ id: string }> } } };

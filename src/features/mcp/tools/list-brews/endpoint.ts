@@ -9,6 +9,9 @@ interface ListBrewsDependencies {
   readonly listBrews: JournalReadRepositoryService["listBrews"];
 }
 
+const optionalSelector = (value: string | null | undefined) =>
+  value?.toLocaleLowerCase() === "all" ? undefined : value ?? undefined;
+
 export const registerListBrewsEndpoint = (
   server: McpServer,
   userId: string,
@@ -30,10 +33,8 @@ export const registerListBrewsEndpoint = (
       },
     },
     async (request) => {
-      const method =
-        request.method?.toLocaleLowerCase() === "all"
-          ? undefined
-          : request.method;
+      const method = optionalSelector(request.method);
+      const beanId = optionalSelector(request.beanId);
       const response = await Effect.runPromise(
         listBrews(dependencies.listBrews, userId, {
           limit: request.limit ?? 20,
@@ -44,7 +45,7 @@ export const registerListBrewsEndpoint = (
           ...(request.minimumRating == null
             ? {}
             : { minimumRating: request.minimumRating }),
-          ...(request.beanId == null ? {} : { beanId: request.beanId }),
+          ...(beanId == null ? {} : { beanId }),
         }),
       );
 
