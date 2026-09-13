@@ -173,6 +173,13 @@ describe("MCP", () => {
         time: "08:00",
         doseIn: 19,
         espressoDrink: "Flat White",
+        recipeNotes: null,
+        aroma: null,
+        flavor: null,
+        body: null,
+        finish: null,
+        descriptors: null,
+        favorite: null,
       };
 
       await sql`

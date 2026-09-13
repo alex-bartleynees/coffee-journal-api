@@ -15,13 +15,13 @@ export const StoredBrew = Schema.Struct({
   date: CalendarDate,
   time: Schema.String,
   rating: Schema.optional(Rating),
-  recipeNotes: Schema.optional(Schema.String),
-  aroma: Schema.optional(Schema.String),
-  flavor: Schema.optional(Schema.String),
-  body: Schema.optional(Schema.String),
-  finish: Schema.optional(Schema.String),
-  descriptors: Schema.optional(Schema.Array(Schema.String)),
-  favorite: Schema.optional(Schema.Boolean),
+  recipeNotes: Schema.optional(Schema.NullOr(Schema.String)),
+  aroma: Schema.optional(Schema.NullOr(Schema.String)),
+  flavor: Schema.optional(Schema.NullOr(Schema.String)),
+  body: Schema.optional(Schema.NullOr(Schema.String)),
+  finish: Schema.optional(Schema.NullOr(Schema.String)),
+  descriptors: Schema.optional(Schema.NullOr(Schema.Array(Schema.String))),
+  favorite: Schema.optional(Schema.NullOr(Schema.Boolean)),
 });
 export type StoredBrew = typeof StoredBrew.Type;
 export type BrewSummary = Omit<StoredBrew, "rating"> & {

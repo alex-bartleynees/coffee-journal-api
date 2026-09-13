@@ -94,6 +94,16 @@ const decodeMachine = Schema.decodeUnknownEither(StoredMachineSummary);
 const decodeRecipe = Schema.decodeUnknownEither(StoredRecipeSummary);
 const decodeStoredBean = Schema.decodeUnknownEither(StoredBean);
 
+const presentTastingFields = (brew: StoredBrew) => ({
+  ...(brew.recipeNotes == null ? {} : { recipeNotes: brew.recipeNotes }),
+  ...(brew.aroma == null ? {} : { aroma: brew.aroma }),
+  ...(brew.flavor == null ? {} : { flavor: brew.flavor }),
+  ...(brew.body == null ? {} : { body: brew.body }),
+  ...(brew.finish == null ? {} : { finish: brew.finish }),
+  ...(brew.descriptors == null ? {} : { descriptors: brew.descriptors }),
+  ...(brew.favorite == null ? {} : { favorite: brew.favorite }),
+});
+
 const toBean = (row: BeanRow): BeanInventory | null => {
   const decoded = decodeStoredBean(row.payload);
   if (decoded._tag === "Left" || decoded.right.id !== row.id) return null;
@@ -129,12 +139,20 @@ const toBrewDetail = (row: BrewDetailRow): BrewDetail | null => {
     method: methodId,
     grinder: grinderId,
     machine: machineId,
+    recipeNotes: _recipeNotes,
+    aroma: _aroma,
+    flavor: _flavor,
+    body: _body,
+    finish: _finish,
+    descriptors: _descriptors,
+    favorite: _favorite,
     ...details
   } = brew;
 
   return {
     ...details,
     rating: details.rating ?? null,
+    ...presentTastingFields(brew),
     methodId,
     grinderId,
     ...(machineId === undefined ? {} : { machineId }),
@@ -152,9 +170,20 @@ const toBrewSummary = (row: BrewRow): BrewSummary | null => {
     return null;
   }
 
+  const {
+    recipeNotes: _recipeNotes,
+    aroma: _aroma,
+    flavor: _flavor,
+    body: _body,
+    finish: _finish,
+    descriptors: _descriptors,
+    favorite: _favorite,
+    ...brew
+  } = decoded.right;
   return {
-    ...decoded.right,
-    rating: decoded.right.rating ?? null,
+    ...brew,
+    rating: brew.rating ?? null,
+    ...presentTastingFields(decoded.right),
   };
 };
 
