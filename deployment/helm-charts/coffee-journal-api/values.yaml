@@ -46,9 +46,9 @@ config:
   keycloakIssuer: "https://identity.alexbartleynees.com/realms/production"
   # Keep unavailable until the dedicated Keycloak audience/scope and initial
   # user grant have been configured.
-  mcpEnabled: "false"
-  mcpResourceUrl: ""
-  mcpAudience: ""
+  mcpEnabled: "true"
+  mcpResourceUrl: "https://app.coffeesjournal.com/mcp"
+  mcpAudience: "coffee-journal-mcp"
   mcpRequiredScope: "coffee-journal:read"
   keycloakAdminBaseUrl: "https://identity.alexbartleynees.com"
   keycloakAdminRealm: "production"
