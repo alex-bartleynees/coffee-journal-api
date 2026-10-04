@@ -5,9 +5,10 @@ import { createServer as createTcpServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import {
-  MinioContainer,
-  type StartedMinioContainer,
-} from "@testcontainers/minio";
+  GenericContainer,
+  type StartedTestContainer,
+  Wait,
+} from "testcontainers";
 import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
@@ -19,7 +20,10 @@ import {
 import { afterAll, beforeAll } from "vitest";
 
 const POSTGRES_IMAGE = "postgres:17";
-const MINIO_IMAGE = "quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z";
+const OBJECT_STORAGE_IMAGE = "rustfs/rustfs:1.0.1";
+const OBJECT_STORAGE_PORT = 9000;
+const OBJECT_STORAGE_ACCESS_KEY = "integration-access-key";
+const OBJECT_STORAGE_SECRET_KEY = "integration-secret-key";
 const RABBITMQ_IMAGE = "rabbitmq:3-management";
 const PHOTO_BUCKET = "bloom-integration-photos";
 const STARTUP_TIMEOUT_MS = 30_000;
@@ -34,7 +38,7 @@ const publicJwk = {
 };
 
 let database: StartedPostgreSqlContainer | undefined;
-let objectStorage: StartedMinioContainer | undefined;
+let objectStorage: StartedTestContainer | undefined;
 let rabbitMq: StartedRabbitMQContainer | undefined;
 let api: ChildProcess | undefined;
 let apiBaseUrl: string | undefined;
@@ -134,17 +138,26 @@ const setup = async () => {
     new PostgreSqlContainer(POSTGRES_IMAGE)
       .withDatabase("coffee_journal")
       .start(),
-    new MinioContainer(MINIO_IMAGE).start(),
+    new GenericContainer(OBJECT_STORAGE_IMAGE)
+      .withEnvironment({
+        RUSTFS_ACCESS_KEY: OBJECT_STORAGE_ACCESS_KEY,
+        RUSTFS_SECRET_KEY: OBJECT_STORAGE_SECRET_KEY,
+      })
+      .withExposedPorts(OBJECT_STORAGE_PORT)
+      .withWaitStrategy(Wait.forHttp("/health", OBJECT_STORAGE_PORT))
+      .withStartupTimeout(STARTUP_TIMEOUT_MS)
+      .start(),
     new RabbitMQContainer(RABBITMQ_IMAGE).start(),
   ]);
 
+  const objectStorageUrl = `http://${objectStorage.getHost()}:${objectStorage.getMappedPort(OBJECT_STORAGE_PORT)}`;
   const s3 = new S3Client({
-    endpoint: objectStorage.getConnectionUrl(),
+    endpoint: objectStorageUrl,
     region: "us-east-1",
     forcePathStyle: true,
     credentials: {
-      accessKeyId: objectStorage.getUsername(),
-      secretAccessKey: objectStorage.getPassword(),
+      accessKeyId: OBJECT_STORAGE_ACCESS_KEY,
+      secretAccessKey: OBJECT_STORAGE_SECRET_KEY,
     },
   });
   await s3.send(new CreateBucketCommand({ Bucket: PHOTO_BUCKET }));
@@ -181,11 +194,11 @@ const setup = async () => {
       MCP_AUDIENCE: "coffee-journal-mcp",
       MCP_REQUIRED_SCOPE: "coffee-journal:read",
       RABBITMQ_URL: rabbitMq.getAmqpUrl(),
-      S3_ENDPOINT: objectStorage.getConnectionUrl(),
+      S3_ENDPOINT: objectStorageUrl,
       S3_REGION: "us-east-1",
       S3_BUCKET: PHOTO_BUCKET,
-      S3_ACCESS_KEY_ID: objectStorage.getUsername(),
-      S3_SECRET_ACCESS_KEY: objectStorage.getPassword(),
+      S3_ACCESS_KEY_ID: OBJECT_STORAGE_ACCESS_KEY,
+      S3_SECRET_ACCESS_KEY: OBJECT_STORAGE_SECRET_KEY,
       S3_FORCE_PATH_STYLE: "true",
     },
     stdio: ["ignore", "pipe", "pipe"],

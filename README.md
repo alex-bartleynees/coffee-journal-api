@@ -17,7 +17,7 @@ Architecture and protocol decisions live in `Strict REPR Architecture`,
 - **jose** — Keycloak JWKS access-token verification
 - **AWS SDK for JavaScript v3** — private S3-compatible bean-photo storage
 - **RabbitMQ** (`amqplib`) — entitlement event consumption
-- **Vitest + Testcontainers** — real Postgres 17, MinIO, and RabbitMQ integration tests
+- **Vitest + Testcontainers** — real Postgres 17, RustFS (S3-compatible), and RabbitMQ integration tests
 - Dev shell via `flake.nix` (`nodejs_22` + `postgresql_16`); run everything with
   `nix develop -c <cmd>` (no global Node on this machine).
 
@@ -238,10 +238,10 @@ All owned tables and the `sync_seq` sequence are created additively on boot by
 
 ## Integration tests
 
-The integration harness starts disposable Postgres 17, RabbitMQ, and MinIO
+The integration harness starts disposable Postgres 17, RabbitMQ, and RustFS
 containers once for the test run, launches the real API process on an ephemeral
 local port, runs the normal startup migrations, and exercises the public HTTP
-contract. MinIO exercises the real AWS SDK adapter. Public signup deliberately
+contract. RustFS (S3-compatible) exercises the real AWS SDK adapter. Public signup deliberately
 uses an unavailable Keycloak administration configuration to verify validation
 and 503 mapping. Protected endpoints use locally signed JWTs verified through a
 test-owned JWKS server.
