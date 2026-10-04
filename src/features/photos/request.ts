@@ -1,5 +1,5 @@
-import type { Headers } from "@effect/platform";
-import { HttpRouter } from "@effect/platform";
+import type { Headers } from "effect/http";
+import { HttpRouter } from "effect/http";
 import { Effect } from "effect";
 import { Auth } from "../../shared/auth.js";
 import { EntitlementRepository } from "../entitlements/repository.js";

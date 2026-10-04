@@ -7,7 +7,7 @@ export interface EntitlementRepositoryService {
   readonly apply: (event: EntitlementEvent) => Effect.Effect<boolean, DbError>;
 }
 
-export class EntitlementRepository extends Context.Tag("EntitlementRepository")<
+export class EntitlementRepository extends Context.Service<
   EntitlementRepository,
   EntitlementRepositoryService
->() {}
+>()("EntitlementRepository") {}

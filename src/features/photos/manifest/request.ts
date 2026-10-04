@@ -1,4 +1,4 @@
-import { HttpServerRequest } from "@effect/platform";
+import { HttpServerRequest } from "effect/http";
 import { Effect } from "effect";
 import { authorizePhotoRequest } from "../request.js";
 

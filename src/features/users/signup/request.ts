@@ -1,31 +1,28 @@
-import { Schema } from "effect";
+import { Schema, SchemaTransformation } from "effect";
 
-const Name = Schema.transform(
-  Schema.String,
-  Schema.String.pipe(Schema.minLength(1), Schema.maxLength(100)),
-  {
-    strict: true,
-    decode: (name) => name.trim(),
-    encode: (name) => name,
-  },
+const Name = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)),
+    SchemaTransformation.trim(),
+  ),
 );
 
-const Email = Schema.transform(
-  Schema.String,
-  Schema.String.pipe(
-    Schema.maxLength(254),
-    Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
+const Email = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.String.check(
+      Schema.isMaxLength(254),
+      Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
+    ),
+    SchemaTransformation.transform({
+      decode: (email) => email.trim().toLowerCase(),
+      encode: (email) => email,
+    }),
   ),
-  {
-    strict: true,
-    decode: (email) => email.trim().toLowerCase(),
-    encode: (email) => email,
-  },
 );
 
 export const CreateUserRequest = Schema.Struct({
   name: Name,
   email: Email,
-  password: Schema.String.pipe(Schema.minLength(8), Schema.maxLength(128)),
+  password: Schema.String.check(Schema.isMinLength(8), Schema.isMaxLength(128)),
 });
 export type CreateUserRequest = typeof CreateUserRequest.Type;

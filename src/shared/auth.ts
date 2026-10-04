@@ -1,6 +1,6 @@
 import { Context, Data, Effect, Layer, Schema } from "effect";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import type { Headers } from "@effect/platform";
+import type { Headers } from "effect/http";
 import { AuthConfig } from "./auth-config.js";
 
 export class AuthError extends Data.TaggedError("AuthError")<{
@@ -19,7 +19,7 @@ export interface AuthService {
   ) => Effect.Effect<AuthUser, AuthError>;
 }
 
-export class Auth extends Context.Tag("Auth")<Auth, AuthService>() {}
+export class Auth extends Context.Service<Auth, AuthService>()("Auth") {}
 
 const AccessTokenClaims = Schema.Struct({
   sub: Schema.String,
@@ -53,7 +53,7 @@ export const AuthLive = Layer.effect(
             catch: (e) =>
               new AuthError({ reason: `invalid token: ${String(e)}` }),
           });
-          const claims = yield* Schema.decodeUnknown(AccessTokenClaims)(
+          const claims = yield* Schema.decodeUnknownEffect(AccessTokenClaims)(
             payload,
           ).pipe(
             Effect.mapError(

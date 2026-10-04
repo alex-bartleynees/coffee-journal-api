@@ -10,7 +10,7 @@ export interface SyncRepositoryService {
   ) => Effect.Effect<SyncResponse, DbError>;
 }
 
-export class SyncRepository extends Context.Tag("SyncRepository")<
+export class SyncRepository extends Context.Service<
   SyncRepository,
   SyncRepositoryService
->() {}
+>()("SyncRepository") {}

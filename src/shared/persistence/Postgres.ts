@@ -7,12 +7,11 @@ export interface PostgresService {
   readonly sql: postgres.Sql;
 }
 
-export class Postgres extends Context.Tag("Postgres")<
-  Postgres,
-  PostgresService
->() {}
+export class Postgres extends Context.Service<Postgres, PostgresService>()(
+  "Postgres",
+) {}
 
-export const PostgresLive = Layer.scoped(
+export const PostgresLive = Layer.effect(
   Postgres,
   Effect.gen(function* () {
     const url = Redacted.value(yield* DatabaseUrl);

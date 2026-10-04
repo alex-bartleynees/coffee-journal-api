@@ -1,4 +1,4 @@
-import { HttpServerResponse } from "@effect/platform";
+import { HttpServerResponse } from "effect/http";
 
 export type McpResponse = Response;
 

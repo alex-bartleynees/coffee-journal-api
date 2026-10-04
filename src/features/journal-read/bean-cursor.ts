@@ -3,10 +3,12 @@ import type { BeanCursor } from "./model.js";
 
 const CursorPayload = Schema.Struct({
   name: Schema.String,
-  id: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(128)),
+  id: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128)),
   filterKey: Schema.String,
 });
 type CursorPayload = typeof CursorPayload.Type;
+
+const CursorFromJson = Schema.fromJsonString(CursorPayload);
 
 export class InvalidBeanCursor extends Data.TaggedError("InvalidBeanCursor") {}
 
@@ -21,11 +23,7 @@ export const encodeBeanCursor = (
 export const decodeBeanCursor = (
   cursor: string,
 ): Effect.Effect<CursorPayload, InvalidBeanCursor> =>
-  Effect.tryPromise({
-    try: () =>
-      Schema.decodeUnknownPromise(CursorPayload)(
-        JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")),
-      ),
-    catch: () => new InvalidBeanCursor(),
-  });
+  Schema.decodeUnknownEffect(CursorFromJson)(
+    Buffer.from(cursor, "base64url").toString("utf8"),
+  ).pipe(Effect.mapError(() => new InvalidBeanCursor()));
 

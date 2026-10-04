@@ -1,19 +1,19 @@
 import { Schema } from "effect";
 
-export const Entity = Schema.Literal(
+export const Entity = Schema.Literals([
   "bean",
   "grinder",
   "brew",
   "machine",
   "method",
   "recipe",
-);
+]);
 export type Entity = typeof Entity.Type;
 
-const Timestamp = Schema.Number.pipe(Schema.int(), Schema.positive());
-const RecordId = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(128),
+const Timestamp = Schema.Int.check(Schema.isGreaterThan(0));
+const RecordId = Schema.String.check(
+  Schema.isMinLength(1),
+  Schema.isMaxLength(128),
 );
 
 export const SyncRecord = Schema.Struct({

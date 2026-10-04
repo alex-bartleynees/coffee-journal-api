@@ -16,7 +16,7 @@ interface TokenVerifierSettings {
 
 const TokenClaims = Schema.Struct({
   sub: Schema.String,
-  exp: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  exp: Schema.Int.check(Schema.isGreaterThan(0)),
   scope: Schema.optional(Schema.String),
   azp: Schema.optional(Schema.String),
   client_id: Schema.optional(Schema.String),

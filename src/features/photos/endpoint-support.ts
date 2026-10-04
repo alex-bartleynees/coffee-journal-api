@@ -1,4 +1,4 @@
-import { HttpServerResponse } from "@effect/platform";
+import { HttpServerResponse } from "effect/http";
 import { Effect } from "effect";
 import { PhotoRequestError } from "./errors.js";
 
@@ -11,7 +11,7 @@ export const handlePhotoFailures = <E, R>(
   effect: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
 ) =>
   effect.pipe(
-    Effect.catchAll((cause) => {
+    Effect.catch((cause) => {
       if (cause instanceof PhotoRequestError) {
         return HttpServerResponse.json(
           { error: cause.code },
@@ -20,7 +20,7 @@ export const handlePhotoFailures = <E, R>(
       }
       if ((cause as { _tag?: string })._tag === "AuthError")
         return textStatus("Unauthorized", 401);
-      return Effect.zipRight(
+      return Effect.andThen(
         Effect.logError("photo sync failed", cause),
         textStatus("Internal server error", 500),
       );

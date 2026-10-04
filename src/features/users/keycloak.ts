@@ -19,14 +19,13 @@ export interface KeycloakService {
   ) => Effect.Effect<"created" | "existing", KeycloakUnavailableError>;
 }
 
-export class Keycloak extends Context.Tag("Keycloak")<
-  Keycloak,
-  KeycloakService
->() {}
+export class Keycloak extends Context.Service<Keycloak, KeycloakService>()(
+  "Keycloak",
+) {}
 
 const TokenResponse = Schema.Struct({
   access_token: Schema.String,
-  expires_in: Schema.optional(Schema.Number.pipe(Schema.positive())),
+  expires_in: Schema.optional(Schema.Number.check(Schema.isGreaterThan(0))),
 });
 
 const UserSearchResponse = Schema.Array(Schema.Unknown);

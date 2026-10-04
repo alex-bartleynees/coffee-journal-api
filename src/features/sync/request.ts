@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { SyncRecord } from "./model.js";
 
-const Sequence = Schema.Number.pipe(Schema.int(), Schema.nonNegative());
+const Sequence = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
 export const SyncRequest = Schema.Struct({
   since: Sequence,

@@ -1,4 +1,4 @@
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Result, Schema } from "effect";
 import { DbError } from "../../shared/persistence/errors.js";
 import { Postgres } from "../../shared/persistence/Postgres.js";
 import {
@@ -85,14 +85,14 @@ const toNoteSearchResult = (row: NoteSearchRow): NoteSearchResult => ({
 const escapeLikePattern = (query: string): string =>
   query.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
 
-const decodeBrew = Schema.decodeUnknownEither(StoredBrew);
-const decodeBrewDetail = Schema.decodeUnknownEither(StoredBrewDetail);
-const decodeBean = Schema.decodeUnknownEither(StoredBeanSummary);
-const decodeMethod = Schema.decodeUnknownEither(StoredMethodSummary);
-const decodeGrinder = Schema.decodeUnknownEither(StoredGrinderSummary);
-const decodeMachine = Schema.decodeUnknownEither(StoredMachineSummary);
-const decodeRecipe = Schema.decodeUnknownEither(StoredRecipeSummary);
-const decodeStoredBean = Schema.decodeUnknownEither(StoredBean);
+const decodeBrew = Schema.decodeUnknownResult(StoredBrew);
+const decodeBrewDetail = Schema.decodeUnknownResult(StoredBrewDetail);
+const decodeBean = Schema.decodeUnknownResult(StoredBeanSummary);
+const decodeMethod = Schema.decodeUnknownResult(StoredMethodSummary);
+const decodeGrinder = Schema.decodeUnknownResult(StoredGrinderSummary);
+const decodeMachine = Schema.decodeUnknownResult(StoredMachineSummary);
+const decodeRecipe = Schema.decodeUnknownResult(StoredRecipeSummary);
+const decodeStoredBean = Schema.decodeUnknownResult(StoredBean);
 
 const presentTastingFields = (brew: StoredBrew) => ({
   ...(brew.recipeNotes == null ? {} : { recipeNotes: brew.recipeNotes }),
@@ -106,15 +106,15 @@ const presentTastingFields = (brew: StoredBrew) => ({
 
 const toBean = (row: BeanRow): BeanInventory | null => {
   const decoded = decodeStoredBean(row.payload);
-  if (decoded._tag === "Left" || decoded.right.id !== row.id) return null;
+  if (decoded._tag === "Failure" || decoded.success.id !== row.id) return null;
 
   return {
-    ...decoded.right,
+    ...decoded.success,
     brews: row.brew_count,
     consumedWeight: row.consumed_weight,
     remainingWeight:
       row.tracked_brew_count === row.brew_count
-        ? Math.max(0, decoded.right.bagWeight - row.consumed_weight)
+        ? Math.max(0, decoded.success.bagWeight - row.consumed_weight)
         : null,
   };
 };
@@ -125,11 +125,11 @@ const beanRowCursor = (row: BeanRow): BeanCursor => ({
 });
 
 const decodedOrNull = <A extends { readonly id: string }>(
-  decoded: { readonly _tag: "Left" } | { readonly _tag: "Right"; readonly right: A },
+  decoded: Result.Result<A, unknown>,
   expectedId: string | null,
 ): A | null =>
-  decoded._tag === "Right" && decoded.right.id === expectedId
-    ? decoded.right
+  Result.isSuccess(decoded) && decoded.success.id === expectedId
+    ? decoded.success
     : null;
 
 const toBrewDetail = (row: BrewDetailRow): BrewDetail | null => {
@@ -166,7 +166,7 @@ const toBrewDetail = (row: BrewDetailRow): BrewDetail | null => {
 
 const toBrewSummary = (row: BrewRow): BrewSummary | null => {
   const decoded = decodeBrew(row.payload);
-  if (decoded._tag === "Left" || decoded.right.id !== row.id) {
+  if (decoded._tag === "Failure" || decoded.success.id !== row.id) {
     return null;
   }
 
@@ -179,11 +179,11 @@ const toBrewSummary = (row: BrewRow): BrewSummary | null => {
     descriptors: _descriptors,
     favorite: _favorite,
     ...brew
-  } = decoded.right;
+  } = decoded.success;
   return {
     ...brew,
     rating: brew.rating ?? null,
-    ...presentTastingFields(decoded.right),
+    ...presentTastingFields(decoded.success),
   };
 };
 

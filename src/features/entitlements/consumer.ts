@@ -10,13 +10,14 @@ import {
   type SpanContext,
   type TextMapGetter,
 } from "@opentelemetry/api";
-import * as OtelTracer from "@effect/opentelemetry/Tracer";
+import * as OtelTracer from "@effect/opentelemetry/OtelTracer";
 import {
+  Deferred,
   Duration,
   Effect,
+  FiberSet,
   Layer,
   Redacted,
-  Runtime,
   Schedule,
   Schema,
 } from "effect";
@@ -46,8 +47,12 @@ const ROUTING_KEY = "subscription.entitlement.changed";
 const QUEUE = "coffee-journal.entitlements";
 const DLX = "coffee-journal-dlx";
 const DLQ = `${QUEUE}.dlq`;
+const REQUEUE_DELAY = Duration.seconds(5);
+const HEALTHY_SESSION = Duration.minutes(1);
 
-const decodeEvent = Schema.decodeUnknown(Schema.parseJson(EntitlementEvent));
+const decodeEvent = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(EntitlementEvent),
+);
 
 type RabbitHeaders = NonNullable<ConsumeMessage["properties"]["headers"]>;
 
@@ -105,14 +110,17 @@ const handleMessage = (channel: Channel, msg: ConsumeMessage) => {
         "messaging.destination.name": QUEUE,
       },
     }),
-    Effect.catchAll((error) =>
-      Effect.sync(() => {
-        // Undecodable or unprocessable → DLQ (nack, no requeue), so one bad
-        // message can't wedge the queue.
-        console.warn("[entitlements] message failed, dead-lettering:", error);
-        channel.nack(msg, false, false);
-      }),
-    ),
+    Effect.catchTags({
+      SchemaError: (error) =>
+        Effect.logWarning("[entitlements] dead-lettering", error).pipe(
+          Effect.andThen(Effect.sync(() => channel.nack(msg, false, false))),
+        ),
+      DbError: (error) =>
+        Effect.logWarning("[entitlements] requeueing", error).pipe(
+          Effect.andThen(Effect.sleep(REQUEUE_DELAY)),
+          Effect.andThen(Effect.sync(() => channel.nack(msg, false, true))),
+        ),
+    }),
   );
 
   const parent = extractParentSpanContext(msg.properties.headers);
@@ -123,15 +131,19 @@ const handleMessage = (channel: Channel, msg: ConsumeMessage) => {
   return processing;
 };
 
-/** One connect-and-consume session; the returned effect fails when the connection dies. */
+/** One connect-and-consume session; fails once it can no longer consume. */
 const consumeSession = (url: string) =>
   Effect.gen(function* () {
-    const entitlements = yield* EntitlementRepository;
+    const ended = yield* Deferred.make<never, Error>();
+    const end = (reason: string) =>
+      Deferred.doneUnsafe(ended, Effect.fail(new Error(reason)));
 
     const connection: ChannelModel = yield* Effect.tryPromise({
       try: () => amqplib.connect(url),
       catch: (e) => new Error(`amqp connect failed: ${String(e)}`),
     });
+    connection.on("error", (e) => end(`amqp connection error: ${e.message}`));
+    connection.on("close", () => end("amqp connection closed"));
 
     yield* Effect.addFinalizer(() =>
       Effect.promise(() => connection.close().catch(() => undefined)),
@@ -141,6 +153,8 @@ const consumeSession = (url: string) =>
       try: () => connection.createChannel(),
       catch: (e) => new Error(`amqp channel failed: ${String(e)}`),
     });
+    channel.on("error", (e) => end(`amqp channel error: ${e.message}`));
+    channel.on("close", () => end("amqp channel closed"));
 
     yield* Effect.tryPromise({
       try: async () => {
@@ -167,17 +181,15 @@ const consumeSession = (url: string) =>
       catch: (e) => new Error(`amqp topology failed: ${String(e)}`),
     });
 
-    const runtime = yield* Effect.runtime<EntitlementRepository>();
+    const run = yield* FiberSet.makeRuntime<EntitlementRepository>();
 
     yield* Effect.tryPromise({
       try: () =>
         channel.consume(QUEUE, (msg) => {
-          if (msg) {
-            Runtime.runFork(runtime)(
-              handleMessage(channel, msg).pipe(
-                Effect.provideService(EntitlementRepository, entitlements),
-              ),
-            );
+          if (msg === null) {
+            end("amqp consumer cancelled by broker");
+          } else {
+            run(handleMessage(channel, msg));
           }
         }),
       catch: (e) => new Error(`amqp consume failed: ${String(e)}`),
@@ -185,38 +197,33 @@ const consumeSession = (url: string) =>
 
     yield* Effect.logInfo(`[entitlements] consuming ${QUEUE} on ${EXCHANGE}`);
 
-    // Hold the session open until the connection drops, then fail so the
-    // outer retry loop reconnects.
-    yield* Effect.async<never, Error>((resume) => {
-      connection.on("close", () =>
-        resume(Effect.fail(new Error("amqp connection closed"))),
-      );
-      connection.on("error", () => {
-        /* close always follows error; handled there */
-      });
-    });
+    return yield* Deferred.await(ended);
   }).pipe(Effect.scoped);
+
+const reconnectBackoff = Schedule.min([
+  Schedule.exponential(Duration.seconds(1)),
+  Schedule.spaced(Duration.seconds(30)),
+]);
+
+/** Drops after HEALTHY_SESSION count as success, resetting the backoff. */
+const supervisedSession = (url: string) =>
+  Effect.gen(function* () {
+    const [uptime, error] = yield* Effect.timed(
+      Effect.flip(consumeSession(url)),
+    );
+    yield* Effect.logWarning(`[entitlements] session failed: ${error.message}`);
+    if (Duration.isLessThan(uptime, HEALTHY_SESSION)) {
+      return yield* Effect.fail(error);
+    }
+  });
 
 export const EntitlementConsumerLive = Layer.effectDiscard(
   Effect.gen(function* () {
-    const settings = yield* EntitlementConsumerConfig;
-    if (!settings.enabled) {
-      yield* Effect.logWarning(
-        "[entitlements] RABBITMQ_URL unset — consumer disabled; entitlement read-model will not update",
-      );
-      return;
-    }
-    const url = Redacted.value(settings.url);
-    yield* Effect.forkDaemon(
-      consumeSession(url).pipe(
-        Effect.tapError((e) =>
-          Effect.logWarning(`[entitlements] session failed: ${e.message}`),
-        ),
-        Effect.retry(
-          Schedule.exponential(Duration.seconds(1)).pipe(
-            Schedule.union(Schedule.spaced(Duration.seconds(30))),
-          ),
-        ),
+    const url = Redacted.value(yield* EntitlementConsumerConfig);
+    yield* Effect.forkScoped(
+      supervisedSession(url).pipe(
+        Effect.retry(reconnectBackoff),
+        Effect.forever,
       ),
     );
   }),

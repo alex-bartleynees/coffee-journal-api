@@ -1,4 +1,4 @@
-import { HttpServerRequest, HttpServerResponse } from "@effect/platform";
+import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { Effect } from "effect";
 import { Auth } from "../../shared/auth.js";
 import { SyncRequest } from "./request.js";
@@ -26,11 +26,11 @@ export const syncEndpoint = Effect.gen(function* () {
         { error: "subscription_required" },
         { status: 403 },
       ),
-    ParseError: () => textStatus("Invalid request body", 400),
-    RequestError: () => textStatus("Invalid request body", 400),
+    SchemaError: () => textStatus("Invalid request body", 400),
+    HttpServerError: () => textStatus("Invalid request body", 400),
   }),
-  Effect.catchAll((cause) =>
-    Effect.zipRight(
+  Effect.catch((cause) =>
+    Effect.andThen(
       Effect.logError("sync failed", cause),
       textStatus("Internal server error", 500),
     ),

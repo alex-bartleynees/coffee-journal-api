@@ -11,7 +11,7 @@ export class PhotoStorageError extends Data.TaggedError("PhotoStorageError")<{
   readonly cause: unknown;
 }> {}
 
-interface PhotoStorageService {
+export interface PhotoStorageService {
   readonly put: (
     key: string,
     body: Uint8Array,
@@ -21,10 +21,10 @@ interface PhotoStorageService {
   readonly delete: (key: string) => Effect.Effect<void, PhotoStorageError>;
 }
 
-export class PhotoStorage extends Context.Tag("PhotoStorage")<
+export class PhotoStorage extends Context.Service<
   PhotoStorage,
   PhotoStorageService
->() {}
+>()("PhotoStorage") {}
 
 export const PhotoStorageLive = Layer.effect(
   PhotoStorage,

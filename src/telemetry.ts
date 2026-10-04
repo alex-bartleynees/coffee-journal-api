@@ -8,7 +8,7 @@ import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { Effect, Layer } from "effect";
 import { TelemetryConfig } from "./telemetry-config.js";
 
-export const TelemetryLive = Layer.unwrapEffect(
+export const TelemetryLive = Layer.unwrap(
   Effect.map(TelemetryConfig, (settings) => {
     if (!settings.enabled) return NodeSdk.layerEmpty;
     const url = settings.endpoint.toString();

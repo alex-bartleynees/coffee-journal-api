@@ -1,4 +1,4 @@
-import { HttpServerRequest } from "@effect/platform";
+import { HttpServerRequest } from "effect/http";
 import { Effect } from "effect";
 import { authorizePhotoRequest, parsePhotoBeanId } from "../request.js";
 import { parseUpdatedAt } from "../validation.js";

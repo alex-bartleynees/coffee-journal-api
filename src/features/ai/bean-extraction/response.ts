@@ -6,7 +6,7 @@ export const BeanExtractionResponse = Schema.Struct({
   origin: Schema.NullOr(Schema.String),
   process: Schema.NullOr(Schema.String),
   varietal: Schema.NullOr(Schema.String),
-  roast: Schema.NullOr(Schema.Literal("light", "medium", "dark")),
+  roast: Schema.NullOr(Schema.Literals(["light", "medium", "dark"])),
   altitude: Schema.NullOr(Schema.String),
   tasting: Schema.Array(Schema.String),
 });

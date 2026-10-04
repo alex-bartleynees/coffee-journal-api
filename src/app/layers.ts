@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { HttpMiddleware, HttpServer } from "@effect/platform";
+import { HttpMiddleware, HttpRouter } from "effect/http";
 import { NodeHttpServer } from "@effect/platform-node";
 import { Layer } from "effect";
 import { AppConfig } from "../config.js";
@@ -32,19 +32,15 @@ const PersistenceLive = Layer.mergeAll(
   McpAccessGrantRepositoryLive,
 ).pipe(Layer.provide(PostgresLive));
 
-export const AppLive = router.pipe(
-  HttpServer.serve(
-    HttpMiddleware.cors({
-      allowedOrigins: ["*"],
-      allowedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowedHeaders: [
-        "content-type",
-        "authorization",
-        "x-photo-updated-at",
-      ],
-    }),
-  ),
-  HttpServer.withLogAddress,
+const CorsLive = HttpRouter.cors({
+  allowedOrigins: ["*"],
+  allowedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["content-type", "authorization", "x-photo-updated-at"],
+});
+
+export const AppLive = HttpRouter.serve(router.pipe(Layer.provide(CorsLive)), {
+  disableLogger: true,
+}).pipe(
   Layer.merge(EntitlementConsumerLive),
   Layer.provide(KeycloakLive),
   Layer.provide(McpFacadeLive),
@@ -53,6 +49,6 @@ export const AppLive = router.pipe(
   Layer.provide(PhotoStorageLive),
   Layer.provide(BeanExtractorLive),
   Layer.provide(ServerLive),
-  HttpMiddleware.withTracerDisabledForUrls(["/health"]),
+  Layer.provide(HttpMiddleware.layerTracerDisabledForUrls(["/health"])),
   Layer.provide(TelemetryLive),
 );

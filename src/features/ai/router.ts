@@ -1,6 +1,8 @@
-import { HttpRouter } from "@effect/platform";
+import { HttpRouter } from "effect/http";
 import { beanExtractionEndpoint } from "./bean-extraction/endpoint.js";
 
-export const aiRouter = HttpRouter.empty.pipe(
-  HttpRouter.post("/api/ai/bean-extraction", beanExtractionEndpoint),
+export const aiRouter = HttpRouter.add(
+  "POST",
+  "/api/ai/bean-extraction",
+  beanExtractionEndpoint,
 );

@@ -64,7 +64,7 @@ export interface JournalReadRepositoryService {
   ) => Effect.Effect<NoteSearchPage, DbError>;
 }
 
-export class JournalReadRepository extends Context.Tag("JournalReadRepository")<
+export class JournalReadRepository extends Context.Service<
   JournalReadRepository,
   JournalReadRepositoryService
->() {}
+>()("JournalReadRepository") {}

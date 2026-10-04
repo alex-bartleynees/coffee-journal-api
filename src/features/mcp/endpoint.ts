@@ -1,4 +1,4 @@
-import { HttpServerResponse } from "@effect/platform";
+import { HttpServerResponse } from "effect/http";
 import { Effect } from "effect";
 import { McpFacade } from "./facade.js";
 import { parseMcpRequest } from "./request.js";
@@ -10,8 +10,8 @@ export const mcpEndpoint = Effect.gen(function* () {
   const response = yield* Effect.tryPromise(() => facade.handle(request));
   return encodeMcpResponse(response);
 }).pipe(
-  Effect.catchAll((cause) =>
-    Effect.zipRight(
+  Effect.catch((cause) =>
+    Effect.andThen(
       Effect.logError("mcp request failed", cause),
       Effect.succeed(
         HttpServerResponse.setStatus(

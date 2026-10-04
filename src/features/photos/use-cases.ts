@@ -10,7 +10,7 @@ import type { PhotoMetadata } from "./model.js";
 import type { PutPhotoRequest } from "./put/request.js";
 import type { PutPhotoResponse } from "./put/response.js";
 import { PhotoRepository } from "./repository.js";
-import { PhotoStorage } from "./storage.js";
+import { PhotoStorage, type PhotoStorageService } from "./storage.js";
 
 const publicPhoto = (photo: PhotoMetadata): PhotoMetadata => ({
   beanId: photo.beanId,
@@ -19,9 +19,9 @@ const publicPhoto = (photo: PhotoMetadata): PhotoMetadata => ({
   mimeType: photo.mimeType,
 });
 
-const bestEffortDelete = (storage: PhotoStorage["Type"], key: string) =>
+const bestEffortDelete = (storage: PhotoStorageService, key: string) =>
   storage.delete(key).pipe(
-    Effect.catchAll((cause) =>
+    Effect.catch((cause) =>
       Effect.logWarning("Failed to remove superseded photo object", {
         key,
         cause,

@@ -1,11 +1,10 @@
-import { Config, Effect, Redacted } from "effect";
+import { Config, Schema } from "effect";
 
-export const EntitlementConsumerConfig = Effect.gen(function* () {
-  const url = yield* Config.redacted("RABBITMQ_URL").pipe(
-    Config.withDefault(Redacted.make("")),
-  );
-  if (Redacted.value(url).trim() === "") {
-    return { enabled: false } as const;
-  }
-  return { enabled: true, url } as const;
-});
+export const EntitlementConsumerConfig = Config.schema(
+  Schema.Redacted(
+    Schema.Trim.check(
+      Schema.isNonEmpty({ message: "RABBITMQ_URL must not be empty" }),
+    ),
+  ),
+  "RABBITMQ_URL",
+);

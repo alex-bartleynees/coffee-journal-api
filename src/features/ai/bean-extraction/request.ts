@@ -1,22 +1,22 @@
-import { HttpServerRequest } from "@effect/platform";
+import { HttpServerRequest } from "effect/http";
 import { Effect, Schema } from "effect";
 import { Auth } from "../../../shared/auth.js";
 import { EntitlementRepository } from "../../entitlements/repository.js";
 import { BeanExtractionRequestError } from "./errors.js";
 
-export const BeanExtractionMimeType = Schema.Literal(
+export const BeanExtractionMimeType = Schema.Literals([
   "image/webp",
   "image/jpeg",
   "image/png",
-);
+]);
 
 export const BeanExtractionRequest = Schema.Struct({
-  bytes: Schema.Uint8ArrayFromSelf,
+  bytes: Schema.Uint8Array,
   mimeType: BeanExtractionMimeType,
 });
 export type BeanExtractionRequest = typeof BeanExtractionRequest.Type;
 
-const decodeMimeType = Schema.decodeUnknown(BeanExtractionMimeType);
+const decodeMimeType = Schema.decodeUnknownEffect(BeanExtractionMimeType);
 
 export const parseBeanExtractionRequest = Effect.gen(function* () {
   const httpRequest = yield* HttpServerRequest.HttpServerRequest;

@@ -12,7 +12,7 @@ export interface UserRepositoryService {
   ) => Effect.Effect<void, DbError>;
 }
 
-export class UserRepository extends Context.Tag("UserRepository")<
+export class UserRepository extends Context.Service<
   UserRepository,
   UserRepositoryService
->() {}
+>()("UserRepository") {}

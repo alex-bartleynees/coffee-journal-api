@@ -1,7 +1,7 @@
 import { Config, Effect } from "effect";
 
 export const TelemetryConfig = Effect.gen(function* () {
-  const endpoint = yield* Config.string("OTEL_EXPORTER_OTLP_ENDPOINT").pipe(
+  const endpoint = yield* Config.String("OTEL_EXPORTER_OTLP_ENDPOINT").pipe(
     Config.withDefault(""),
   );
   if (endpoint.trim() === "") {
@@ -9,14 +9,14 @@ export const TelemetryConfig = Effect.gen(function* () {
   }
   return {
     enabled: true,
-    endpoint: yield* Config.url("OTEL_EXPORTER_OTLP_ENDPOINT"),
-    serviceVersion: yield* Config.nonEmptyString("OTEL_SERVICE_VERSION").pipe(
+    endpoint: yield* Config.URL("OTEL_EXPORTER_OTLP_ENDPOINT"),
+    serviceVersion: yield* Config.NonEmptyString("OTEL_SERVICE_VERSION").pipe(
       Config.withDefault("0.0.1"),
     ),
-    instanceId: yield* Config.nonEmptyString("HOSTNAME").pipe(
+    instanceId: yield* Config.NonEmptyString("HOSTNAME").pipe(
       Config.withDefault(String(process.pid)),
     ),
-    deploymentEnvironment: yield* Config.nonEmptyString("NODE_ENV").pipe(
+    deploymentEnvironment: yield* Config.NonEmptyString("NODE_ENV").pipe(
       Config.withDefault("development"),
     ),
   } as const;

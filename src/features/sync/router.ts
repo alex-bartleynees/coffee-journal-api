@@ -1,6 +1,4 @@
-import { HttpRouter } from "@effect/platform";
+import { HttpRouter } from "effect/http";
 import { syncEndpoint } from "./endpoint.js";
 
-export const syncRouter = HttpRouter.empty.pipe(
-  HttpRouter.post("/api/sync", syncEndpoint),
-);
+export const syncRouter = HttpRouter.add("POST", "/api/sync", syncEndpoint);

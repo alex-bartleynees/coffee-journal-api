@@ -1,4 +1,4 @@
-import { HttpServerResponse } from "@effect/platform";
+import { HttpServerResponse } from "effect/http";
 import { Effect } from "effect";
 import { McpConfig } from "../config.js";
 import { ProtectedResourceMetadataResponse } from "./response.js";
@@ -19,8 +19,7 @@ export const protectedResourceMetadataEndpoint = Effect.gen(function* () {
     resource_name: "Coffee Journal MCP",
   } satisfies ProtectedResourceMetadataResponse;
 
-  return yield* HttpServerResponse.schemaJson(ProtectedResourceMetadataResponse)(
-    response,
-  );
+  return yield* HttpServerResponse.schemaJson(
+    ProtectedResourceMetadataResponse,
+  )(response);
 });
-

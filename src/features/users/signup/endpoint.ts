@@ -1,9 +1,5 @@
-import {
-  FileSystem,
-  HttpServerRequest,
-  HttpServerResponse,
-} from "@effect/platform";
-import { Effect, Option } from "effect";
+import { HttpServerRequest, HttpServerResponse } from "effect/http";
+import { ByteSize, Effect } from "effect";
 import { claimSignupAttempt, createUser } from "./use-case.js";
 import { CreateUserRequest } from "./request.js";
 import { CreateUserResponse } from "./response.js";
@@ -22,12 +18,12 @@ export const signupEndpoint = Effect.gen(function* () {
     status: 201,
   });
 }).pipe(
-  HttpServerRequest.withMaxBodySize(Option.some(FileSystem.KiB(4))),
+  Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.kibibytes(4)),
   Effect.catchTags({
     SignupRateLimited: () =>
       HttpServerResponse.json({ error: "too_many_requests" }, { status: 429 }),
     KeycloakUnavailableError: (cause) =>
-      Effect.zipRight(
+      Effect.andThen(
         Effect.logError("Keycloak signup request failed", {
           reason: cause.reason,
         }),
@@ -36,13 +32,13 @@ export const signupEndpoint = Effect.gen(function* () {
           { status: 503 },
         ),
       ),
-    ParseError: () =>
+    SchemaError: () =>
       HttpServerResponse.json({ error: "invalid_request" }, { status: 400 }),
-    RequestError: () =>
+    HttpServerError: () =>
       HttpServerResponse.json({ error: "invalid_request" }, { status: 400 }),
   }),
-  Effect.catchAll((cause) =>
-    Effect.zipRight(
+  Effect.catch((cause) =>
+    Effect.andThen(
       Effect.logError("signup failed", cause),
       HttpServerResponse.json({ error: "internal_error" }, { status: 500 }),
     ),

@@ -1,10 +1,7 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText, Output } from "ai";
 import { Context, Effect, Layer, Redacted } from "effect";
-import {
-  type BeanExtraction,
-  beanExtractionSchema,
-} from "./model.js";
+import { type BeanExtraction, beanExtractionSchema } from "./model.js";
 import { BeanExtractionError } from "./errors.js";
 import { BeanExtractionConfig } from "./config.js";
 
@@ -25,10 +22,10 @@ export interface BeanExtractorService {
   ) => Effect.Effect<BeanExtraction, BeanExtractionError>;
 }
 
-export class BeanExtractor extends Context.Tag("BeanExtractor")<
+export class BeanExtractor extends Context.Service<
   BeanExtractor,
   BeanExtractorService
->() {}
+>()("BeanExtractor") {}
 
 export const BeanExtractorLive = Layer.effect(
   BeanExtractor,
@@ -75,10 +72,12 @@ export const BeanExtractorLive = Layer.effect(
               cause,
             }),
         }).pipe(
-          Effect.timeoutFail({
+          Effect.timeoutOrElse({
             duration: "25 seconds",
-            onTimeout: () =>
-              new BeanExtractionError({ message: "Bean extraction timed out" }),
+            orElse: () =>
+              Effect.fail(
+                new BeanExtractionError({ message: "Bean extraction timed out" }),
+              ),
           }),
         ),
     });

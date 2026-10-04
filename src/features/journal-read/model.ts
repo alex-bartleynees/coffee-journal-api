@@ -1,11 +1,11 @@
 import { Schema } from "effect";
 
-const CalendarDate = Schema.String.pipe(
-  Schema.pattern(/^\d{4}-\d{2}-\d{2}$/),
+const CalendarDate = Schema.String.check(
+  Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/),
 );
 
 const Rating = Schema.NullOr(
-  Schema.Number.pipe(Schema.between(0, 10)),
+  Schema.Number.check(Schema.isBetween({ minimum: 0, maximum: 10 })),
 );
 
 export const StoredBrew = Schema.Struct({
@@ -63,14 +63,14 @@ export const StoredBean = Schema.Struct({
   origin: Schema.String,
   process: Schema.String,
   varietal: Schema.String,
-  roast: Schema.Literal("light", "medium", "dark"),
+  roast: Schema.Literals(["light", "medium", "dark"]),
   altitude: Schema.String,
   tasting: Schema.Array(Schema.String),
   dateOpened: CalendarDate,
   roastDate: CalendarDate,
   pricePerKg: Schema.Number,
   bagWeight: Schema.Number,
-  brews: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  brews: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   finished: Schema.optional(Schema.Boolean),
 });
 export type StoredBean = typeof StoredBean.Type;
@@ -168,14 +168,14 @@ export interface JournalSummary {
   }[];
 }
 
-export const NoteEntity = Schema.Literal(
+export const NoteEntity = Schema.Literals([
   "brew",
   "bean",
   "recipe",
   "grinder",
   "machine",
   "method",
-);
+]);
 export type NoteEntity = typeof NoteEntity.Type;
 
 export interface NoteSearchResult {

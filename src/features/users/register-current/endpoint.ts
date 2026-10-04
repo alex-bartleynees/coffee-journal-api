@@ -1,4 +1,4 @@
-import { HttpServerRequest, HttpServerResponse } from "@effect/platform";
+import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { Effect } from "effect";
 import { Auth } from "../../../shared/auth.js";
 import { RegisterCurrentUserRequest } from "./request.js";
@@ -22,8 +22,8 @@ export const registerCurrentUserEndpoint = Effect.gen(function* () {
   );
 }).pipe(
   Effect.catchTags({ AuthError: () => textStatus("Unauthorized", 401) }),
-  Effect.catchAll((cause) =>
-    Effect.zipRight(
+  Effect.catch((cause) =>
+    Effect.andThen(
       Effect.logError("user registration failed", cause),
       textStatus("Internal server error", 500),
     ),

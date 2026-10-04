@@ -10,8 +10,9 @@ Architecture and protocol decisions live in `Strict REPR Architecture`,
 
 ## Stack
 
-- **Effect** (`effect`) — runtime, layers, `effect/Schema` wire contracts
-- **@effect/platform** + **@effect/platform-node** — HTTP server/router
+- **Effect v4** (`effect`) — runtime, layers, `effect/Schema` wire contracts,
+  HTTP router/server (`effect/http`)
+- **@effect/platform-node** — Node HTTP server and runtime
 - **postgres** (porsager) — Postgres access
 - **jose** — Keycloak JWKS access-token verification
 - **AWS SDK for JavaScript v3** — private S3-compatible bean-photo storage
@@ -23,7 +24,7 @@ Architecture and protocol decisions live in `Strict REPR Architecture`,
 ## Architecture
 
 The service combines strict REPR endpoints, pragmatic vertical slices, selected
-DDD concepts, and a thin shared kernel. Effect `Context.Tag` interfaces are the
+DDD concepts, and a thin shared kernel. Effect `Context.Service` interfaces are the
 seams between use cases and infrastructure; production adapters are assembled
 once with `Layer`.
 
@@ -118,7 +119,10 @@ RabbitMQ (exchange `payments-direct`, routing key
 `subscription.entitlement.changed`, queue `coffee-journal.entitlements` + DLQ;
 PascalCase JSON; deduped on `MessageId`; events for other products are skipped).
 Entitled syncs also JIT-upsert a thin `users` row (sub/email/first-seen/last-sync
-— ops bookkeeping only). `RABBITMQ_URL` unset = consumer disabled.
+— ops bookkeeping only). `RABBITMQ_URL` is required: the API refuses to start
+without it, but an unreachable broker never blocks HTTP — the consumer runs in
+the background, reconnecting with backoff, while the gate serves the last known
+entitlements.
 
 **Granting yourself sync before the payments wiring exists** (e.g. for the
 login E2E): find your Keycloak `sub` (in `/bff/user` claims), then either
@@ -212,7 +216,7 @@ All owned tables and the `sync_seq` sequence are created additively on boot by
 | `KEYCLOAK_ADMIN_REALM`         | _(empty)_                                  | Realm in which signup creates users                             |
 | `KEYCLOAK_ADMIN_CLIENT_ID`     | `admin-cli`                                | Signup service-account client                                   |
 | `KEYCLOAK_ADMIN_CLIENT_SECRET` | _(empty → signup admin disabled)_          | Signup service-account secret                                   |
-| `RABBITMQ_URL`                 | _(empty → consumer disabled)_              | Payments entitlement broker URL                                 |
+| `RABBITMQ_URL`                 | _(required)_                               | Payments entitlement broker URL                                 |
 | `S3_ENDPOINT`                  | _(empty → photo storage disabled)_         | S3-compatible photo endpoint                                    |
 | `S3_REGION`                    | _(empty)_                                  | Photo bucket region                                             |
 | `S3_BUCKET`                    | _(empty)_                                  | Private photo bucket                                            |

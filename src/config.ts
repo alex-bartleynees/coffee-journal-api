@@ -10,7 +10,7 @@ import { TelemetryConfig } from "./telemetry-config.js";
 
 export const AppConfig = {
   server: {
-    port: Config.port("PORT").pipe(Config.withDefault(3001)),
+    port: Config.Port("PORT").pipe(Config.withDefault(3001)),
   },
   auth: AuthConfig,
   database: { url: DatabaseUrl },

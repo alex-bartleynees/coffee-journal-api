@@ -24,7 +24,7 @@ export interface PhotoRepositoryService {
   >;
 }
 
-export class PhotoRepository extends Context.Tag("PhotoRepository")<
+export class PhotoRepository extends Context.Service<
   PhotoRepository,
   PhotoRepositoryService
->() {}
+>()("PhotoRepository") {}

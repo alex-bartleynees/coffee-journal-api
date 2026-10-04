@@ -2,12 +2,14 @@ import { Data, Effect, Schema } from "effect";
 import { NoteEntity, type NoteSearchCursor } from "./model.js";
 
 const CursorPayload = Schema.Struct({
-  updatedAt: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  updatedAt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   entity: NoteEntity,
-  id: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(128)),
+  id: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128)),
   filterKey: Schema.String,
 });
 type CursorPayload = typeof CursorPayload.Type;
+
+const CursorFromJson = Schema.fromJsonString(CursorPayload);
 
 export class InvalidNoteSearchCursor extends Data.TaggedError(
   "InvalidNoteSearchCursor",
@@ -24,11 +26,7 @@ export const encodeNoteSearchCursor = (
 export const decodeNoteSearchCursor = (
   cursor: string,
 ): Effect.Effect<CursorPayload, InvalidNoteSearchCursor> =>
-  Effect.tryPromise({
-    try: () =>
-      Schema.decodeUnknownPromise(CursorPayload)(
-        JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")),
-      ),
-    catch: () => new InvalidNoteSearchCursor(),
-  });
+  Schema.decodeUnknownEffect(CursorFromJson)(
+    Buffer.from(cursor, "base64url").toString("utf8"),
+  ).pipe(Effect.mapError(() => new InvalidNoteSearchCursor()));
 

@@ -12,16 +12,15 @@ export interface McpFacadeService {
   readonly handle: (request: McpRequest) => Promise<McpResponse>;
 }
 
-export class McpFacade extends Context.Tag("McpFacade")<
-  McpFacade,
-  McpFacadeService
->() {}
+export class McpFacade extends Context.Service<McpFacade, McpFacadeService>()(
+  "McpFacade",
+) {}
 
 const disabledFacade: McpFacadeService = {
   handle: () => Promise.resolve(new Response("Not Found", { status: 404 })),
 };
 
-export const McpFacadeLive = Layer.scoped(
+export const McpFacadeLive = Layer.effect(
   McpFacade,
   Effect.gen(function* () {
     const settings = yield* McpConfig;

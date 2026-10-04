@@ -1,11 +1,12 @@
-import { HttpRouter } from "@effect/platform";
+import { HttpRouter } from "effect/http";
 import { mcpEndpoint } from "./endpoint.js";
 import { protectedResourceMetadataEndpoint } from "./protected-resource-metadata/endpoint.js";
 
-export const mcpRouter = HttpRouter.empty.pipe(
-  HttpRouter.get(
+export const mcpRouter = HttpRouter.addAll([
+  HttpRouter.route(
+    "GET",
     "/.well-known/oauth-protected-resource/mcp",
     protectedResourceMetadataEndpoint,
   ),
-  HttpRouter.all("/mcp", mcpEndpoint),
-);
+  HttpRouter.route("*", "/mcp", mcpEndpoint),
+]);
