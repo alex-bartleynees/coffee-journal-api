@@ -123,6 +123,31 @@ describe("sync", () => {
     });
   });
 
+  it("accepts water profile records", async () => {
+    const userId = crypto.randomUUID();
+    const recordId = crypto.randomUUID();
+    await sql`INSERT INTO entitlements (user_id, product_id, has_access, status)
+			VALUES (${userId}, 'coffee_journal', true, 'active')`;
+    const water = {
+      entity: "water",
+      id: recordId,
+      updatedAt: 2_000,
+      deleted: false,
+      payload: { id: recordId, name: "Filtered + Apax", additions: [] },
+    };
+
+    const response = await sync("/api/sync", userId, {
+      since: 0,
+      changes: [water],
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      applied: [recordId],
+      changes: [water],
+    });
+  });
+
   it("keeps records isolated by user and synchronizes tombstones", async () => {
     const ownerId = crypto.randomUUID();
     const otherUserId = crypto.randomUUID();

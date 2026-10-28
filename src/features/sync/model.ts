@@ -7,6 +7,7 @@ export const Entity = Schema.Literals([
   "machine",
   "method",
   "recipe",
+  "water",
 ]);
 export type Entity = typeof Entity.Type;
 
